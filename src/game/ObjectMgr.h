@@ -417,7 +417,7 @@ SkillRangeType GetSkillRangeType(SkillLineEntry const *pSkill, bool racial);
 
 bool normalizePlayerName(std::string& name);
 
-struct LanguageDesc
+struct STRAWBERRY_DLL_SPEC LanguageDesc
 {
     Language lang_id;
     uint32   spell_id;
@@ -425,7 +425,7 @@ struct LanguageDesc
 };
 
 extern LanguageDesc lang_description[LANGUAGES_COUNT];
-LanguageDesc const* GetLanguageDescByID(uint32 lang);
+STRAWBERRY_DLL_SPEC LanguageDesc const* GetLanguageDescByID(uint32 lang);
 
 class PlayerDumpReader;
 
@@ -1228,8 +1228,8 @@ class ObjectMgr
 #define sObjectMgr Strawberry::Singleton<ObjectMgr>::Instance()
 
 // scripting access functions
-bool LoadStrawberryStrings(DatabaseType& db, char const* table,int32 start_value = MAX_CREATURE_AI_TEXT_STRING_ID, int32 end_value = std::numeric_limits<int32>::min());
-CreatureInfo const* GetCreatureTemplateStore(uint32 entry);
-Quest const* GetQuestTemplateStore(uint32 entry);
+STRAWBERRY_DLL_SPEC bool LoadStrawberryStrings(DatabaseType& db, char const* table,int32 start_value = MAX_CREATURE_AI_TEXT_STRING_ID, int32 end_value = std::numeric_limits<int32>::min());
+STRAWBERRY_DLL_SPEC CreatureInfo const* GetCreatureTemplateStore(uint32 entry);
+STRAWBERRY_DLL_SPEC Quest const* GetQuestTemplateStore(uint32 entry);
 
 #endif

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010-2012 Strawberry-Pr0jcts <http://strawberry-pr0jcts.com/>
- * Copyright (C) 2005-2011 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2011 STRAWBERRY <http://getSTRAWBERRY.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -65,6 +65,29 @@ typedef ACE_SHLIB_HANDLE STRAWBERRY_LIBRARY_HANDLE;
 #  endif //__APPLE_CC__ && BIG_ENDIAN
 #endif //PLATFORM
 
+#if PLATFORM == PLATFORM_WINDOWS
+#  ifdef STRAWBERRY_WIN32_DLL_IMPORT
+#    define STRAWBERRY_DLL_DECL __declspec(dllimport)
+#  else //!STRAWBERRY_WIN32_DLL_IMPORT
+#    ifdef STRAWBERRY_WIND_DLL_EXPORT
+#      define STRAWBERRY_DLL_DECL __declspec(dllexport)
+#    else //!STRAWBERRY_WIND_DLL_EXPORT
+#      define STRAWBERRY_DLL_DECL
+#    endif //STRAWBERRY_WIND_DLL_EXPORT
+#  endif //STRAWBERRY_WIN32_DLL_IMPORT
+#else //PLATFORM != PLATFORM_WINDOWS
+#  define STRAWBERRY_DLL_DECL
+#endif //PLATFORM
+
+#if PLATFORM == PLATFORM_WINDOWS
+#  define STRAWBERRY_DLL_SPEC __declspec(dllexport)
+#  ifndef DECLSPEC_NORETURN
+#    define DECLSPEC_NORETURN __declspec(noreturn)
+#  endif //DECLSPEC_NORETURN
+#else //PLATFORM != PLATFORM_WINDOWS
+#  define STRAWBERRY_DLL_SPEC
+#  define DECLSPEC_NORETURN
+#endif //PLATFORM
 #if !defined(DEBUG)
 #  define STRAWBERRY_INLINE inline
 #else //DEBUG

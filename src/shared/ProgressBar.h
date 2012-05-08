@@ -21,7 +21,7 @@
 
 #include "Platform/Define.h"
 
-class BarGoLink
+class STRAWBERRY_DLL_SPEC BarGoLink
 {
     public:                                                 // constructors
         explicit BarGoLink(int row_count);

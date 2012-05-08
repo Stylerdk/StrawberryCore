@@ -26,7 +26,7 @@
 
 class ACE_Configuration_Heap;
 
-class Config
+class STRAWBERRY_DLL_SPEC Config
 {
     public:
 

@@ -135,7 +135,7 @@ void ReputationMgr::SendState(FactionState const* faction)
     data << (uint32) faction->ReputationListID;
     data << (uint32) faction->Standing;
 
-    for(FactionStateList::iterator itr = m_factions.begin(); itr != m_factions.end(); ++itr)
+    for (FactionStateList::iterator itr = m_factions.begin(); itr != m_factions.end(); ++itr)
     {
         if (itr->second.needSend)
         {
@@ -487,8 +487,15 @@ void ReputationMgr::LoadFromDB(QueryResult *result)
                 }
 
                 // set atWar for hostile
-                if(GetRank(factionEntry) <= REP_HOSTILE)
-                    SetAtWar(faction,true);
+                ForcedReactions::const_iterator forceItr = m_forcedReactions.find(factionEntry->ID);
+                if (forceItr != m_forcedReactions.end())
+                {
+                    if (forceItr->second <= REP_HOSTILE)
+                        SetAtWar(faction, true);
+                }
+                else if (GetRank(factionEntry) <= REP_HOSTILE)
+                    SetAtWar(faction, true);
+
 
                 // reset changed flag if values similar to saved in DB
                 if(faction->Flags==dbFactionFlags)

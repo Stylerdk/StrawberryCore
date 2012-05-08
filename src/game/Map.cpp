@@ -30,7 +30,7 @@
 #include "ObjectAccessor.h"
 #include "ObjectMgr.h"
 #include "World.h"
-#include "EventScripts.h"
+#include "ScriptBase/Event/EventScripts.h"
 #include "Group.h"
 #include "MapRefManager.h"
 #include "DBCEnums.h"

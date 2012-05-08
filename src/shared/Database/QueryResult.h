@@ -24,7 +24,7 @@
 #include "Errors.h"
 #include "Field.h"
 
-class QueryResult
+class STRAWBERRY_DLL_SPEC QueryResult
 {
     public:
         QueryResult(uint64 rowCount, uint32 fieldCount)
@@ -49,7 +49,7 @@ class QueryResult
 
 typedef std::vector<std::string> QueryFieldNames;
 
-class QueryNamedResult
+class STRAWBERRY_DLL_SPEC QueryNamedResult
 {
     public:
         explicit QueryNamedResult(QueryResult* query, QueryFieldNames const& names) : mQuery(query), mFieldNames(names) {}

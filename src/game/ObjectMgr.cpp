@@ -26,7 +26,7 @@
 #include "Log.h"
 #include "MapManager.h"
 #include "ObjectGuid.h"
-#include "EventScripts.h"
+#include "ScriptBase/Event/EventScripts.h"
 #include "SpellMgr.h"
 #include "UpdateMask.h"
 #include "World.h"

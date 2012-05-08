@@ -25,7 +25,7 @@
 class TargetedMovementGeneratorBase;
 class Unit;
 
-class FollowerReference : public Reference<Unit, TargetedMovementGeneratorBase>
+class STRAWBERRY_DLL_SPEC FollowerReference : public Reference<Unit, TargetedMovementGeneratorBase>
 {
     protected:
         void targetObjectBuildLink();

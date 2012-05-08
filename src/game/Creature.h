@@ -505,7 +505,7 @@ enum TemporaryFactionFlags                                  // Used at real fact
     TEMPFACTION_ALL,
 };
 
-class Creature : public Unit
+class STRAWBERRY_DLL_SPEC Creature : public Unit
 {
     CreatureAI *i_AI;
 

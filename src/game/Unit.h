@@ -1092,7 +1092,7 @@ typedef std::set<ObjectGuid> GuardianPetList;
 struct SpellProcEventEntry;                                 // used only privately
 class  VehicleKit;
 
-class Unit : public WorldObject
+class STRAWBERRY_DLL_SPEC Unit : public WorldObject
 {
     public:
         typedef std::set<Unit*> AttackerSet;

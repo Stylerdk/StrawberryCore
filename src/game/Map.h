@@ -36,7 +36,7 @@
 #include "GameSystem/GridRefManager.h"
 #include "MapRefManager.h"
 #include "Utilities/TypeList.h"
-#include "EventScripts.h"
+#include "ScriptBase/Event/EventScripts.h"
 #include "CreatureLinkingMgr.h"
 
 #include <bitset>
@@ -93,7 +93,7 @@ enum LevelRequirementVsMode
 
 #define MIN_UNLOAD_DELAY      1                             // immediate unload
 
-class Map : public GridRefManager<NGridType>
+class STRAWBERRY_DLL_SPEC Map : public GridRefManager<NGridType>
 {
     friend class MapReference;
     friend class ObjectGridLoader;
@@ -357,7 +357,7 @@ class Map : public GridRefManager<NGridType>
         CreatureLinkingHolder m_creatureLinkingHolder;
 };
 
-class WorldMap : public Map
+class STRAWBERRY_DLL_SPEC WorldMap : public Map
 {
     private:
         using Map::GetPersistentState;                      // hide in subclass for overwrite
@@ -369,7 +369,7 @@ class WorldMap : public Map
         WorldPersistentState* GetPersistanceState() const;
 };
 
-class DungeonMap : public Map
+class STRAWBERRY_DLL_SPEC DungeonMap : public Map
 {
     private:
         using Map::GetPersistentState;                      // hide in subclass for overwrite
@@ -395,7 +395,7 @@ class DungeonMap : public Map
         bool m_unloadWhenEmpty;
 };
 
-class BattleGroundMap : public Map
+class STRAWBERRY_DLL_SPEC BattleGroundMap : public Map
 {
     private:
         using Map::GetPersistentState;                      // hide in subclass for overwrite

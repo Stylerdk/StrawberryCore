@@ -21,6 +21,24 @@
     \ingroup u2w
 */
 
+#include <ace/ACE.h>
+#include <ace/Log_Msg.h>
+#include <ace/Reactor.h>
+#include <ace/Reactor_Impl.h>
+#include <ace/TP_Reactor.h>
+#include <ace/Dev_Poll_Reactor.h>
+#include <ace/Guard_T.h>
+#include <ace/Atomic_Op.h>
+#include <ace/os_include/arpa/os_inet.h>
+#include <ace/os_include/netinet/os_tcp.h>
+#include <ace/os_include/sys/os_types.h>
+#include <ace/os_include/sys/os_socket.h>
+
+#include <set>
+
+#include "Common.h"
+#include "Database/DatabaseEnv.h"
+#include "Policies/SingletonImp.h"
 #include "Opcodes.h"
 #include "WorldSession.h"
 
@@ -82,7 +100,6 @@ static void DefineOpcode(Opcodes opcodeEnum, const char* name, SessionStatus sta
     else
         sLog.outError("SOE: No valid value for %s", name); // Should be removed later. One opcode have the value 0
 }
-
 #define OPCODE( name, status, packetProcessing, handler ) DefineOpcode( name, #name, status, packetProcessing, handler )
 
 void InitOpcodeTable()

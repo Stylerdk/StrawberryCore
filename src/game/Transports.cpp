@@ -28,7 +28,7 @@
 #include "WorldPacket.h"
 #include "DBCStores.h"
 #include "ProgressBar.h"
-#include "EventScripts.h"
+#include "ScriptBase/Event/EventScripts.h"
 
 void MapManager::LoadTransports()
 {

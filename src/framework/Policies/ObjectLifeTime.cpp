@@ -27,7 +27,7 @@ namespace Strawberry
         std::atexit((void (*)())p);
     }
 
-    void at_exit(void (*func)())
+    void STRAWBERRY_DLL_SPEC at_exit(void (*func)())
     {
         external_wrapper((void*)func);
     }

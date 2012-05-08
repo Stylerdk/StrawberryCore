@@ -23,7 +23,7 @@
 #include "Utilities/LinkedReference/Reference.h"
 #include "Map.h"
 
-class MapReference : public Reference<Map, Player>
+class STRAWBERRY_DLL_SPEC MapReference : public Reference<Map, Player>
 {
     protected:
         void targetObjectBuildLink()

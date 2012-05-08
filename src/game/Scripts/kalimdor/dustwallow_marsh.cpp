@@ -33,7 +33,7 @@ npc_private_hendel
 EndContentData */
 
 #include "pchdef.h"
-#include "escort_ai.h"
+#include "../../ScriptBase/AI/escort_ai.h"
 
 /*######
 ## mobs_risen_husk_spirit
@@ -49,7 +49,7 @@ enum
     NPC_RISEN_SPIRIT                 = 23554
 };
 
-struct mobs_risen_husk_spiritAI : public ScriptedAI
+struct STRAWBERRY_DLL_DECL mobs_risen_husk_spiritAI : public ScriptedAI
 {
     mobs_risen_husk_spiritAI(Creature* pCreature) : ScriptedAI(pCreature) {Reset();}
 
@@ -137,7 +137,7 @@ enum
     SAY_RAND_8      = -1000550
 };
 
-struct npc_restless_apparitionAI : public ScriptedAI
+struct STRAWBERRY_DLL_DECL npc_restless_apparitionAI : public ScriptedAI
 {
     npc_restless_apparitionAI(Creature* pCreature) : ScriptedAI(pCreature) {Reset();}
 
@@ -189,7 +189,7 @@ enum
     FACTION_THER_DESERTER   = 1883
 };
 
-struct npc_deserter_agitatorAI : public ScriptedAI
+struct STRAWBERRY_DLL_DECL npc_deserter_agitatorAI : public ScriptedAI
 {
     npc_deserter_agitatorAI(Creature* pCreature) : ScriptedAI(pCreature) {Reset();}
 
@@ -267,7 +267,7 @@ enum
     FACTION_MOR_RUNNING             = 35
 };
 
-struct npc_morokkAI : public npc_escortAI
+struct STRAWBERRY_DLL_DECL npc_morokkAI : public npc_escortAI
 {
     npc_morokkAI(Creature* pCreature) : npc_escortAI(pCreature)
     {
@@ -450,7 +450,7 @@ enum
 static float m_afSpawn[] = {-3383.501953f, -3203.383301f, 36.149f};
 static float m_afMoveTo[] = {-3371.414795f, -3212.179932f, 34.210f};
 
-struct npc_ogronAI : public npc_escortAI
+struct STRAWBERRY_DLL_DECL npc_ogronAI : public npc_escortAI
 {
     npc_ogronAI(Creature* pCreature) : npc_escortAI(pCreature)
     {
@@ -727,7 +727,7 @@ enum
 };
 
 //TODO: develop this further, end event not created
-struct npc_private_hendelAI : public ScriptedAI
+struct STRAWBERRY_DLL_DECL npc_private_hendelAI : public ScriptedAI
 {
     npc_private_hendelAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
 

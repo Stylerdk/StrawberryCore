@@ -27,10 +27,10 @@ typedef void (* Destroyer)(void);
 
 namespace Strawberry
 {
-    void at_exit(void (*func)());
+    void STRAWBERRY_DLL_SPEC at_exit(void (*func)());
 
     template<class T>
-    class ObjectLifeTime
+    class STRAWBERRY_DLL_SPEC ObjectLifeTime
     {
         public:
 

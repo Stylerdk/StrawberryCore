@@ -29,7 +29,7 @@
 #include "Player.h"
 #include "GossipDef.h"
 #include "UpdateMask.h"
-#include "EventScripts.h"
+#include "ScriptBase/Event/EventScripts.h"
 #include "Creature.h"
 #include "Pet.h"
 #include "Guild.h"

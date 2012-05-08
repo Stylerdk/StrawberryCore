@@ -41,7 +41,7 @@ class Aura;
 // internal helper
 struct ReapplyAffectedPassiveAurasHelper;
 
-class SpellAuraHolder
+class STRAWBERRY_DLL_SPEC SpellAuraHolder
 {
     public:
         SpellAuraHolder (SpellEntry const* spellproto, Unit *target, WorldObject *caster, Item *castItem);
@@ -204,7 +204,7 @@ typedef void(Aura::*pAuraHandler)(bool Apply, bool Real);
 //      each setting object update field code line moved under if(Real) check is significant strawberry speedup, and less server->client data sends
 //      each packet sending code moved under if(Real) check is _large_ strawberry speedup, and lot less server->client data sends
 
-class Aura
+class STRAWBERRY_DLL_SPEC Aura
 {
     friend struct ReapplyAffectedPassiveAurasHelper;
     friend Aura* CreateAura(SpellEntry const* spellproto, SpellEffectIndex eff, int32 *currentBasePoints, SpellAuraHolder *holder, Unit *target, Unit *caster, Item* castItem);
@@ -496,7 +496,7 @@ class Aura
         void ReapplyAffectedPassiveAuras(Unit* target, bool owner_mode);
 };
 
-class AreaAura : public Aura
+class STRAWBERRY_DLL_SPEC AreaAura : public Aura
 {
     public:
         AreaAura(SpellEntry const* spellproto, SpellEffectIndex eff, int32 *currentBasePoints, SpellAuraHolder *holder, Unit *target, Unit *caster = NULL, Item* castItem = NULL);
@@ -508,7 +508,7 @@ class AreaAura : public Aura
         AreaAuraType m_areaAuraType;
 };
 
-class PersistentAreaAura : public Aura
+class STRAWBERRY_DLL_SPEC PersistentAreaAura : public Aura
 {
     public:
         PersistentAreaAura(SpellEntry const* spellproto, SpellEffectIndex eff, int32 *currentBasePoints, SpellAuraHolder *holder, Unit *target, Unit *caster = NULL, Item* castItem = NULL);
@@ -517,7 +517,7 @@ class PersistentAreaAura : public Aura
         void Update(uint32 diff);
 };
 
-class SingleEnemyTargetAura : public Aura
+class STRAWBERRY_DLL_SPEC SingleEnemyTargetAura : public Aura
 {
     friend Aura* CreateAura(SpellEntry const* spellproto, SpellEffectIndex eff, int32 *currentBasePoints, SpellAuraHolder *holder, Unit *target, Unit *caster, Item* castItem);
 

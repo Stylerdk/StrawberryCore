@@ -256,7 +256,7 @@ void WorldSession::HandleMoveTeleportAckOpcode(WorldPacket& recv_data)
 
 void WorldSession::HandleMovementOpcodes( WorldPacket & recv_data )
 {
-    Opcodes opcode = recv_data.GetOpcodeEnum();
+    uint32 opcode = recv_data.GetOpcode();
     DEBUG_LOG("WORLD: Recvd %s (%u, 0x%X) opcode", LookupOpcodeName(opcode), opcode, opcode);
 
     recv_data.hexlike();
@@ -728,7 +728,7 @@ void WorldSession::WriteMovementInfo(WorldPacket &data, MovementInfo *mi)
                 data << mi->fallTime;
             break;
         default:
-            WPError(false, "Incorrect sequence element detected at ReadMovementInfo");
+            WPError(false);
         }
     }
 }

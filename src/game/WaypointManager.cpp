@@ -24,7 +24,7 @@
 #include "ProgressBar.h"
 #include "MapManager.h"
 #include "ObjectMgr.h"
-#include "EventScripts.h"
+#include "ScriptBase/Event/EventScripts.h"
 
 INSTANTIATE_SINGLETON_1(WaypointManager);
 
