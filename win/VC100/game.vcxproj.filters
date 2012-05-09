@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="World/Handlers">
@@ -2341,9 +2341,6 @@
     <ClCompile Include="..\..\src\game\Scripts\kalimdor\caverns_of_time\dragon_soul\instance_dragon_soul.cpp">
       <Filter>Scripts\kalimdor\caverns_of_time\dragon_soul</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\game\Scripts\kalimdor\caverns_of_time\end_time\instance_end_time.cpp">
-      <Filter>Scripts\kalimdor\caverns_of_time\end_time</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\game\Scripts\kalimdor\caverns_of_time\hour_of_twilight\instance_hour_of_twilight.cpp">
       <Filter>Scripts\kalimdor\caverns_of_time\hour_of_twilight</Filter>
     </ClCompile>
@@ -2364,6 +2361,21 @@
     </ClCompile>
     <ClCompile Include="..\..\src\game\Scripts\kalimdor\vortex_pinnacle\instance_vortex_pinnacle.cpp">
       <Filter>Scripts\kalimdor\vortex_pinnacle</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\game\Scripts\kalimdor\caverns_of_time\end_time\instance_end_time.cpp">
+      <Filter>Scripts\kalimdor\caverns_of_time\end_time</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\game\Scripts\kalimdor\caverns_of_time\end_time\boss_echo_jaina.cpp">
+      <Filter>Scripts\kalimdor\caverns_of_time\end_time</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\game\Scripts\kalimdor\caverns_of_time\end_time\boss_echo_sylvanas.cpp">
+      <Filter>Scripts\kalimdor\caverns_of_time\end_time</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\game\Scripts\kalimdor\caverns_of_time\end_time\boss_echo_tyrande.cpp">
+      <Filter>Scripts\kalimdor\caverns_of_time\end_time</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\game\Scripts\kalimdor\caverns_of_time\end_time\boss_echo_baine.cpp">
+      <Filter>Scripts\kalimdor\caverns_of_time\end_time</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -3067,6 +3079,9 @@
     </ClInclude>
     <ClInclude Include="..\..\src\game\Scripts\outland\tempest_keep\the_mechanar\mechanar.h">
       <Filter>scripts\outland\tempest_keep\the_mechanar</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\game\Scripts\kalimdor\caverns_of_time\end_time\instance_end_time.h">
+      <Filter>Scripts\kalimdor\caverns_of_time\end_time</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
