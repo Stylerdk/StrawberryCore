@@ -34,7 +34,7 @@
 #include <libpq-fe.h>
 #endif
 
-class STRAWBERRY_DLL_SPEC PostgreSQLConnection : public SqlConnection
+class PostgreSQLConnection : public SqlConnection
 {
     public:
         PostgreSQLConnection() : mPGconn(NULL) {}
@@ -59,7 +59,7 @@ class STRAWBERRY_DLL_SPEC PostgreSQLConnection : public SqlConnection
         PGconn *mPGconn;
 };
 
-class STRAWBERRY_DLL_SPEC DatabasePostgre : public Database
+class DatabasePostgre : public Database
 {
     friend class MaNGOS::OperatorNew<DatabasePostgre>;
 

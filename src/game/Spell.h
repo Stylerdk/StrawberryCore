@@ -416,7 +416,7 @@ class Spell
         bool CheckTarget( Unit* target, SpellEffectIndex eff );
         bool CanAutoCast(Unit* target);
 
-        static void STRAWBERRY_DLL_SPEC SendCastResult(Player* caster, SpellEntry const* spellInfo, uint8 cast_count, SpellCastResult result);
+        static void SendCastResult(Player* caster, SpellEntry const* spellInfo, uint8 cast_count, SpellCastResult result);
         void SendCastResult(SpellCastResult result);
         void SendSpellStart();
         void SendSpellGo();

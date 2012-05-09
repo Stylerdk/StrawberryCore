@@ -1018,7 +1018,7 @@ bool GameEventMgr::IsActiveHoliday( HolidayIds id )
     return false;
 }
 
-bool STRAWBERRY_DLL_SPEC IsHolidayActive( HolidayIds id )
+bool IsHolidayActive( HolidayIds id )
 {
     return sGameEventMgr.IsActiveHoliday(id);
 }
