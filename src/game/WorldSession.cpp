@@ -116,7 +116,7 @@ WorldSession::~WorldSession()
         delete m_Warden;
 
     ///- empty incoming packet queue
-    WorldPacket* packet;
+    WorldPacket* packet = NULL;
     while(_recvQueue.next(packet))
         delete packet;
 }
@@ -137,6 +137,9 @@ char const* WorldSession::GetPlayerName() const
 void WorldSession::SendPacket(WorldPacket const* packet)
 {
     if (!m_Socket)
+        return;
+
+    if (packet->GetOpcode() >= NUM_MSG_TYPES)
         return;
 
     #ifdef STRAWBERRY_DEBUG
@@ -208,11 +211,10 @@ bool WorldSession::Update(PacketFilter& updater)
 {
     ///- Retrieve packets from the receive queue and call the appropriate handlers
     /// not process packets if socket already closed
-    WorldPacket* packet;
+    WorldPacket* packet = NULL;
     while (m_Socket && !m_Socket->IsClosed() && _recvQueue.next(packet, updater))
     {
 
-        
         OpcodeHandler const& opHandle = opcodeTable[packet->GetOpcode()];
 
         try
@@ -258,7 +260,7 @@ bool WorldSession::Update(PacketFilter& updater)
 
                     // single from authed time opcodes send in to after logout time
                     // and before other STATUS_LOGGEDIN_OR_RECENTLY_LOGGOUT opcodes.
-                    if (packet->GetOpcode() != CMSG_SET_ACTIVE_VOICE_CHANNEL)
+                    if (packet->GetOpcodeEnum() != CMSG_SET_ACTIVE_VOICE_CHANNEL)
                         m_playerRecentlyLogout = false;
 
                     ExecuteOpcode(opHandle, packet);
@@ -286,7 +288,7 @@ bool WorldSession::Update(PacketFilter& updater)
                     packet->GetOpcode(), GetRemoteAddress().c_str(), GetAccountId());
             if (sLog.HasLogLevelOrHigher(LOG_LVL_DEBUG))
             {
-                sLog.outDebug("Dumping error causing packet:");
+                DEBUG_LOG("Dumping error causing packet:");
                 packet->hexlike();
             }
 
@@ -570,10 +572,53 @@ void WorldSession::SendNotification(int32 string_id,...)
     }
 }
 
-void WorldSession::SendSetPhaseShift(uint32 PhaseShift)
+void WorldSession::SendSetPhaseShift(uint32 phaseMask, uint16 mapId)
 {
-    WorldPacket data(SMSG_SET_PHASE_SHIFT, 4);
-    data << uint32(PhaseShift);
+    ObjectGuid guid = GetPlayer()->GetObjectGuid();
+    uint8 guidMask[] = { 2, 3, 1, 6, 4, 5, 0, 7 };
+    uint8 guidBytes[] = { 7, 4, 1, 2, 6, 3, 0, 5 };
+
+    uint32 phaseFlags = 0;
+
+    for (uint32 i = 0; i < sPhaseStore.GetNumRows(); i++)
+    {
+        if (PhaseEntry const* phase = sPhaseStore.LookupEntry(i))
+        {
+            if (phase->PhaseShift == phaseMask)
+            {
+                phaseFlags = phase->Flags;
+                break;
+            }
+        }
+    }
+
+    WorldPacket data(SMSG_PHASE_SHIFT_CHANGE, 30);
+    data.WriteGuidMask(guid, guidMask, 8);
+    data.WriteGuidBytes(guid, guidBytes, 2, 0);
+
+    // Seen only 0 bytes
+    data << uint32(0);
+
+    data.WriteGuidBytes(guid, guidBytes, 1, 2);
+    data << uint32(phaseMask ? phaseFlags : 8);
+    data.WriteGuidBytes(guid, guidBytes, 2, 3);
+
+    // Seen only 0 bytes
+    data << uint32(0);
+
+    // PhaseShift, uint16 (2 bytes)
+    data << uint32(phaseMask ? 2 : 0);
+    if (phaseMask)
+        data << uint16(phaseMask);
+
+    data.WriteGuidBytes(guid, guidBytes, 2, 5);
+
+    // MapId , uint16 (2 bytes)
+    data << uint32(mapId ? 2 : 0);
+    if (mapId)
+        data << uint16(mapId);
+
+    data.WriteGuidBytes(guid, guidBytes, 1, 7);
     SendPacket(&data);
 }
 
@@ -887,9 +932,9 @@ void WorldSession::SendRedirectClient(std::string& ip, uint16 port)
     pkt << uint32(ip2);                                     // inet_addr(ipstr)
     pkt << uint16(port);                                    // port
 
-    pkt << uint32(GetLatency());                            // latency-related?
+    pkt << uint32(0);                                       // unknown
 
-    HMACSHA1 sha1(20, m_Socket->GetSessionKey().AsByteArray());
+    HMACSHA1 sha1(40, m_Socket->GetSessionKey().AsByteArray());
     sha1.UpdateData((uint8*)&ip2, 4);
     sha1.UpdateData((uint8*)&port, 2);
     sha1.Finalize();

@@ -64,10 +64,27 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
     uint32 type;
     uint32 lang;
 
-    switch (recv_data.GetOpcode())
+    switch (recv_data.GetOpcodeEnum())
     {
         case CMSG_CHAT_MESSAGE_SAY:
             type = CHAT_MSG_SAY;
+            break;
+        case CMSG_CHAT_MESSAGE_WHISPER:
+            type = CHAT_MSG_WHISPER;
+            break;
+        case CMSG_CHAT_MESSAGE_GUILD:
+            type = CHAT_MSG_GUILD;
+            break;
+        case CMSG_CHAT_MESSAGE_AFK:
+            type = CHAT_MSG_GUILD;
+            break;
+        case CMSG_CHAT_MESSAGE_DND:
+            type = CHAT_MSG_GUILD;
+            break;
+        case CMSG_CHAT_MESSAGE_OFFICER:
+            type = CHAT_MSG_GUILD;
+            break;
+        default:
             break;
     }
 
@@ -268,8 +285,9 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
             WorldPacket data;
             ChatHandler::FillMessageData(&data, this, type, lang, msg.c_str());
             group->BroadcastPacket(&data, false, group->GetMemberGroup(GetPlayer()->GetObjectGuid()));
-        } break;
 
+            break;
+        }
         case CHAT_MSG_GUILD:
         {
             std::string msg;
@@ -290,8 +308,9 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
             if (GetPlayer()->GetGuildId())
                 if (Guild* guild = sGuildMgr.GetGuildById(GetPlayer()->GetGuildId()))
                     guild->BroadcastToGuild(this, msg, lang == LANG_ADDON ? LANG_ADDON : LANG_UNIVERSAL);
-        } break;
 
+            break;
+        }
         case CHAT_MSG_OFFICER:
         {
             std::string msg;
@@ -312,8 +331,9 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
             if (GetPlayer()->GetGuildId())
                 if (Guild* guild = sGuildMgr.GetGuildById(GetPlayer()->GetGuildId()))
                     guild->BroadcastToOfficers(this, msg, lang == LANG_ADDON ? LANG_ADDON : LANG_UNIVERSAL);
-        } break;
 
+            break;
+        }
         case CHAT_MSG_RAID:
         {
             std::string msg;

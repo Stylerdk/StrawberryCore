@@ -1,4 +1,4 @@
-# Copyright (C) 2005-2012 MaNGOS project <http://getmangos.com/>
+# Copyright (C) 2005-2011 MaNGOS project <http://getmangos.com/>
 #
 # This file is free software; as a special exception the author gives
 # unlimited permission to copy and/or distribute it, with or without
@@ -10,6 +10,10 @@
 
 cmake_minimum_required (VERSION 2.6)
 project (MANGOS_MAP_EXTRACTOR)
+
+message(FATAL_ERROR
+  "This project CMakeLists.txt outdated after switch use dep/libmpq and need update use existed Visual Studio projects for build."
+)
 
 add_subdirectory (libmpq)
 add_subdirectory (loadlib)

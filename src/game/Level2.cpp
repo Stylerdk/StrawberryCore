@@ -36,7 +36,6 @@
 #include "Language.h"
 #include "World.h"
 #include "GameEventMgr.h"
-#include "ScriptBase/Event/EventScripts.h"
 #include "SpellMgr.h"
 #include "MapPersistentStateMgr.h"
 #include "AccountMgr.h"
@@ -1058,11 +1057,10 @@ bool ChatHandler::HandleGameObjectAddCommand(char* args)
     if (!ExtractOptInt32(&args, spawntimeSecs, 0))
         return false;
 
-    const GameObjectInfo *gInfo = ObjectMgr::GetGameObjectInfo(id);
-
+    const GameObjectInfo* gInfo = ObjectMgr::GetGameObjectInfo(id);
     if (!gInfo)
     {
-        PSendSysMessage(LANG_GAMEOBJECT_NOT_EXIST,id);
+        PSendSysMessage(LANG_GAMEOBJECT_NOT_EXIST, id);
         SetSentErrorMessage(true);
         return false;
     }
@@ -1070,20 +1068,18 @@ bool ChatHandler::HandleGameObjectAddCommand(char* args)
     if (gInfo->displayId && !sGameObjectDisplayInfoStore.LookupEntry(gInfo->displayId))
     {
         // report to DB errors log as in loading case
-        sLog.outErrorDb("Gameobject (Entry %u GoType: %u) have invalid displayId (%u), not spawned.",id, gInfo->type, gInfo->displayId);
-        PSendSysMessage(LANG_GAMEOBJECT_HAVE_INVALID_DATA,id);
+        sLog.outErrorDb("Gameobject (Entry %u GoType: %u) have invalid displayId (%u), not spawned.", id, gInfo->type, gInfo->displayId);
+        PSendSysMessage(LANG_GAMEOBJECT_HAVE_INVALID_DATA, id);
         SetSentErrorMessage(true);
         return false;
     }
 
-    Player *chr = m_session->GetPlayer();
-    float x = float(chr->GetPositionX());
-    float y = float(chr->GetPositionY());
-    float z = float(chr->GetPositionZ());
-    float o = float(chr->GetOrientation());
-    Map *map = chr->GetMap();
-
-    GameObject* pGameObj = new GameObject;
+    Player* plr = m_session->GetPlayer();
+    float x = float(plr->GetPositionX());
+    float y = float(plr->GetPositionY());
+    float z = float(plr->GetPositionZ());
+    float o = float(plr->GetOrientation());
+    Map* map = plr->GetMap();
 
     // used guids from specially reserved range (can be 0 if no free values)
     uint32 db_lowGUID = sObjectMgr.GenerateStaticGameObjectLowGuid();
@@ -1094,7 +1090,8 @@ bool ChatHandler::HandleGameObjectAddCommand(char* args)
         return false;
     }
 
-    if (!pGameObj->Create(db_lowGUID, gInfo->id, map, chr->GetPhaseMaskForSpawn(), x, y, z, o))
+    GameObject* pGameObj = new GameObject;
+    if (!pGameObj->Create(db_lowGUID, gInfo->id, map, plr->GetPhaseMaskForSpawn(), x, y, z, o))
     {
         delete pGameObj;
         return false;
@@ -1104,7 +1101,7 @@ bool ChatHandler::HandleGameObjectAddCommand(char* args)
         pGameObj->SetRespawnTime(spawntimeSecs);
 
     // fill the gameobject data and save to the db
-    pGameObj->SaveToDB(map->GetId(), (1 << map->GetSpawnMode()),chr->GetPhaseMaskForSpawn());
+    pGameObj->SaveToDB(map->GetId(), (1 << map->GetSpawnMode()), plr->GetPhaseMaskForSpawn());
 
     // this will generate a new guid if the object is in an instance
     if (!pGameObj->LoadFromDB(db_lowGUID, map))
@@ -1740,7 +1737,7 @@ bool ChatHandler::HandleNpcAddMoveCommand(char* args)
     {
         pCreature->SetDefaultMovementType(WAYPOINT_MOTION_TYPE);
         pCreature->GetMotionMaster()->Initialize();
-        if (pCreature->isAlive())                            // dead creature will reset movement generator at respawn
+        if (pCreature->isAlive())                           // dead creature will reset movement generator at respawn
         {
             pCreature->SetDeathState(JUST_DIED);
             pCreature->Respawn();
@@ -1926,7 +1923,7 @@ bool ChatHandler::HandleNpcMoveCommand(char* args)
         }
         pCreature->GetMap()->CreatureRelocation(pCreature,x, y, z,o);
         pCreature->GetMotionMaster()->Initialize();
-        if (pCreature->isAlive())                            // dead creature will reset movement generator at respawn
+        if (pCreature->isAlive())                           // dead creature will reset movement generator at respawn
         {
             pCreature->SetDeathState(JUST_DIED);
             pCreature->Respawn();
@@ -2020,7 +2017,7 @@ bool ChatHandler::HandleNpcSetMoveTypeCommand(char* args)
     {
         pCreature->SetDefaultMovementType(move_type);
         pCreature->GetMotionMaster()->Initialize();
-        if (pCreature->isAlive())                            // dead creature will reset movement generator at respawn
+        if (pCreature->isAlive())                           // dead creature will reset movement generator at respawn
         {
             pCreature->SetDeathState(JUST_DIED);
             pCreature->Respawn();
@@ -2129,7 +2126,7 @@ bool ChatHandler::HandleNpcSpawnDistCommand(char* args)
     pCreature->SetRespawnRadius((float)option);
     pCreature->SetDefaultMovementType(mtype);
     pCreature->GetMotionMaster()->Initialize();
-    if (pCreature->isAlive())                                // dead creature will reset movement generator at respawn
+    if (pCreature->isAlive())                               // dead creature will reset movement generator at respawn
     {
         pCreature->SetDeathState(JUST_DIED);
         pCreature->Respawn();
@@ -2222,10 +2219,11 @@ bool ChatHandler::HandleNpcUnFollowCommand(char* /*args*/)
 bool ChatHandler::HandleNpcTameCommand(char* /*args*/)
 {
     Creature *creatureTarget = getSelectedCreature ();
-    if (!creatureTarget || creatureTarget->IsPet ())
+
+    if (!creatureTarget || creatureTarget->IsPet())
     {
-        PSendSysMessage (LANG_SELECT_CREATURE);
-        SetSentErrorMessage (true);
+        PSendSysMessage(LANG_SELECT_CREATURE);
+        SetSentErrorMessage(true);
         return false;
     }
 
@@ -2575,7 +2573,11 @@ bool ChatHandler::HandlePInfoCommand(char* args)
     AccountTypes security = SEC_PLAYER;
     std::string last_login = GetStrawberryString(LANG_ERROR);
 
-    QueryResult* result = LoginDatabase.PQuery("SELECT username,gmlevel,last_ip,last_login FROM account WHERE id = '%u'",accId);
+    QueryResult* result = LoginDatabase.PQuery("SELECT a.username,aa.gmlevel,a.email,a.last_ip,a.last_login "
+                                                "FROM account a "
+                                                "LEFT JOIN account_access aa "
+                                                "ON (a.id = aa.id) "
+                                                "WHERE a.id = '%u'",accId);
     if (result)
     {
         Field* fields = result->Fetch();
@@ -2988,7 +2990,7 @@ bool ChatHandler::HandleWpAddCommand(char* args)
     {
         target->SetDefaultMovementType(WAYPOINT_MOTION_TYPE);
         target->GetMotionMaster()->Initialize();
-        if (target->isAlive())                               // dead creature will reset movement generator at respawn
+        if (target->isAlive())                              // dead creature will reset movement generator at respawn
         {
             target->SetDeathState(JUST_DIED);
             target->Respawn();
@@ -3208,7 +3210,7 @@ bool ChatHandler::HandleWpModifyCommand(char* args)
         if (npcCreature)
         {
             npcCreature->GetMotionMaster()->Initialize();
-            if (npcCreature->isAlive())                      // dead creature will reset movement generator at respawn
+            if (npcCreature->isAlive())                     // dead creature will reset movement generator at respawn
             {
                 npcCreature->SetDeathState(JUST_DIED);
                 npcCreature->Respawn();
@@ -3288,7 +3290,7 @@ bool ChatHandler::HandleWpModifyCommand(char* args)
                 delete result2;
             }
             npcCreature->GetMotionMaster()->Initialize();
-            if (npcCreature->isAlive())                      // dead creature will reset movement generator at respawn
+            if (npcCreature->isAlive())                     // dead creature will reset movement generator at respawn
             {
                 npcCreature->SetDeathState(JUST_DIED);
                 npcCreature->Respawn();
@@ -3352,7 +3354,7 @@ bool ChatHandler::HandleWpModifyCommand(char* args)
             if (npcCreature)
             {
                 npcCreature->GetMotionMaster()->Initialize();
-                if (npcCreature->isAlive())                  // dead creature will reset movement generator at respawn
+                if (npcCreature->isAlive())                 // dead creature will reset movement generator at respawn
                 {
                     npcCreature->SetDeathState(JUST_DIED);
                     npcCreature->Respawn();
@@ -3386,7 +3388,7 @@ bool ChatHandler::HandleWpModifyCommand(char* args)
     {
         npcCreature->SetDefaultMovementType(WAYPOINT_MOTION_TYPE);
         npcCreature->GetMotionMaster()->Initialize();
-        if (npcCreature->isAlive())                          // dead creature will reset movement generator at respawn
+        if (npcCreature->isAlive())                         // dead creature will reset movement generator at respawn
         {
             npcCreature->SetDeathState(JUST_DIED);
             npcCreature->Respawn();
@@ -4432,7 +4434,7 @@ bool ChatHandler::HandleLearnAllRecipesCommand(char* args)
     HandleLearnSkillRecipesHelper(target,targetSkillInfo->id);
 
     uint16 maxLevel = target->GetPureMaxSkillValue(targetSkillInfo->id);
-    target->SetSkill(targetSkillInfo->id, maxLevel, maxLevel);
+    target->SetSkill(targetSkillInfo->id, maxLevel, maxLevel, target->GetSkillStep(targetSkillInfo->id));
     PSendSysMessage(LANG_COMMAND_LEARN_ALL_RECIPES, name.c_str());
     return true;
 }
@@ -4674,10 +4676,6 @@ bool ChatHandler::HandleLookupPoolCommand(char * args)
         return false;
 
     std::string namepart = args;
-
-    Player* player = m_session ? m_session->GetPlayer() : NULL;
-    MapPersistentState* mapState = player ? player->GetMap()->GetPersistentState() : NULL;
-
     strToLower(namepart);
 
     uint32 counter = 0;
@@ -4721,7 +4719,6 @@ bool ChatHandler::HandlePoolListCommand(char* args)
     // spawn pools for expected map or for not initialized shared pools state for non-instanceable maps
     for(uint16 pool_id = 0; pool_id < sPoolMgr.GetMaxPoolId(); ++pool_id)
     {
-        PoolTemplateData const& pool_template = sPoolMgr.GetPoolTemplate(pool_id);
         if (sPoolMgr.GetPoolTemplate(pool_id).CanBeSpawnedAtMap(mapState->GetMapEntry()))
         {
             ShowPoolListHelper(pool_id);

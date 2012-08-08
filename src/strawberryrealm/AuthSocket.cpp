@@ -300,6 +300,7 @@ void AuthSocket::SendProof(Sha1Hash sha)
         case 11403:                                         // 3.3.2
         case 11723:                                         // 3.3.3a
         case 12340:                                         // 3.3.5a
+        case 13623:                                         // 4.0.6a
         case 15050:                                         // 4.3.0a
         case 15595:                                         // 4.3.4
         default:                                            // or later
@@ -396,7 +397,12 @@ bool AuthSocket::_HandleLogonChallenge()
         ///- Get the account details from the account table
         // No SQL injection (escaped user name)
 
-        result = LoginDatabase.PQuery("SELECT sha_pass_hash,id,locked,last_ip,gmlevel,v,s FROM account WHERE username = '%s'",_safelogin.c_str ());
+        result = LoginDatabase.PQuery("SELECT a.sha_pass_hash,a.id,a.locked,a.last_ip,aa.gmlevel,a.v,a.s "
+                                 "FROM account a "
+                                 "LEFT JOIN account_access aa "
+                                 "ON (a.id = aa.id) "
+                                 "WHERE a.username = '%s'",_safelogin.c_str ());
+
         if( result )
         {
             ///- If the IP is 'locked', check that the player comes indeed from the correct IP address
@@ -943,7 +949,10 @@ void AuthSocket::LoadRealmlist(ByteBuffer &pkt, uint32 acctid)
 
                 // Show offline state for unsupported client builds and locked realms (1.x clients not support locked state show)
                 if (!ok_build || (i->second.allowedSecurityLevel > _accountSecurityLevel))
-                    realmflags = RealmFlags(realmflags | REALM_FLAG_OFFLINE);
+                    {
+                    //realmflags = RealmFlags(realmflags | REALM_FLAG_OFFLINE);
+					realmflags = RealmFlags(realmflags | REALM_FLAG_FULL);
+                    }
 
                 pkt << uint32(i->second.icon);              // realm type
                 pkt << uint8(realmflags);                   // realmflags
@@ -965,6 +974,7 @@ void AuthSocket::LoadRealmlist(ByteBuffer &pkt, uint32 acctid)
         case 11403:                                         // 3.3.2
         case 11723:                                         // 3.3.3a
         case 12340:                                         // 3.3.5a
+        case 13623:                                         // 4.0.6a
         case 15050:                                         // 4.3.0a
         case 15595:                                         // 4.3.4
         default:                                            // and later
@@ -999,7 +1009,8 @@ void AuthSocket::LoadRealmlist(ByteBuffer &pkt, uint32 acctid)
 
                 // Show offline state for unsupported client builds
                 if (!ok_build)
-                    realmFlags = RealmFlags(realmFlags | REALM_FLAG_OFFLINE);
+                    //realmFlags = RealmFlags(realmFlags | REALM_FLAG_OFFLINE);
+					realmFlags = RealmFlags(realmFlags | REALM_FLAG_FULL);
 
                 if (!buildInfo)
                     realmFlags = RealmFlags(realmFlags & ~REALM_FLAG_SPECIFYBUILD);

@@ -39,8 +39,11 @@ void WorldSession::HandleLearnPreviewTalents(WorldPacket& recvPacket)
 {
     DEBUG_LOG("CMSG_LEARN_PREVIEW_TALENTS");
 
-    uint32 talentsCount;
+    uint32 talentsCount, talentTabId;
+    recvPacket >> talentTabId;
     recvPacket >> talentsCount;
+
+    sLog.outDebug("Number of talents, tabId sent with CMSG_LEARN_PREVIEW_TALENTS : %u, %u",talentsCount, talentTabId);
 
     uint32 talentId, talentRank;
 

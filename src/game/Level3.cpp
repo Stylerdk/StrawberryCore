@@ -36,7 +36,6 @@
 #include "ObjectAccessor.h"
 #include "MapManager.h"
 #include "MassMailMgr.h"
-#include "ScriptBase/Event/EventScripts.h"
 #include "Language.h"
 #include "GridNotifiersImpl.h"
 #include "CellImpl.h"
@@ -436,6 +435,14 @@ bool ChatHandler::HandleReloadCreatureQuestInvRelationsCommand(char* /*args*/)
     sLog.outString( "Loading Quests Relations... (`creature_involvedrelation`)" );
     sObjectMgr.LoadCreatureInvolvedRelations();
     SendGlobalSysMessage("DB table `creature_involvedrelation` (creature quest takers) reloaded.");
+    return true;
+}
+
+bool ChatHandler::HandleReloadConditionsCommand(char* /*args*/)
+{
+    sLog.outString( "Re-Loading `conditions`... " );
+    sObjectMgr.LoadConditions();
+    SendGlobalSysMessage("DB table `conditions` reloaded.");
     return true;
 }
 
@@ -869,12 +876,13 @@ bool ChatHandler::HandleReloadGameObjectScriptsCommand(char* args)
     }
 
     if (*args!='a')
-        sLog.outString( "Re-Loading Scripts from `gameobject_scripts`...");
+        sLog.outString("Re-Loading Scripts from `gameobject_[template]_scripts`...");
 
     sEventScriptMgr.LoadGameObjectScripts();
+    sEventScriptMgr.LoadGameObjectTemplateScripts();
 
     if (*args!='a')
-        SendGlobalSysMessage("DB table `gameobject_scripts` reloaded.");
+        SendGlobalSysMessage("DB table `gameobject_[template]_scripts` reloaded.");
 
     return true;
 }
@@ -1134,6 +1142,7 @@ bool ChatHandler::HandleAccountSetGmLevelCommand(char* args)
         return false;
 
     int32 gm;
+	uint32 gmRealmID = realmID;
     if (!ExtractInt32(&args, gm))
         return false;
 
@@ -1151,13 +1160,19 @@ bool ChatHandler::HandleAccountSetGmLevelCommand(char* args)
 
     /// account can't set security to same or grater level, need more power GM or console
     AccountTypes plSecurity = GetAccessLevel();
-    if (AccountTypes(gm) >= plSecurity )
+    if (AccountTypes(gm) >= plSecurity  || (gmRealmID != realmID && plSecurity < SEC_CONSOLE))
     {
         SendSysMessage(LANG_YOURS_SECURITY_IS_LOW);
         SetSentErrorMessage(true);
         return false;
     }
-
+// Check if provided realmID is not current realmID, or isn't -1
+        if (gmRealmID != realmID && gmRealmID != -1)
+        {
+            SendSysMessage(LANG_INVALID_REALMID);
+            SetSentErrorMessage(true);
+            return false;
+        }
     if (targetPlayer)
     {
         ChatHandler(targetPlayer).PSendSysMessage(LANG_YOURS_SECURITY_CHANGED,GetNameLink().c_str(), gm);
@@ -1165,7 +1180,18 @@ bool ChatHandler::HandleAccountSetGmLevelCommand(char* args)
     }
 
     PSendSysMessage(LANG_YOU_CHANGE_SECURITY, targetAccountName.c_str(), gm);
-    LoginDatabase.PExecute("UPDATE account SET gmlevel = '%i' WHERE id = '%u'", gm, targetAccountId);
+	// If gmRealmID is -1, delete all values for the account id, else, insert values for the specific realmID
+        if (gmRealmID == -1)
+        {
+            LoginDatabase.PExecute("DELETE FROM account_access WHERE id = '%u'", targetAccountId);
+            LoginDatabase.PExecute("INSERT INTO account_access VALUES ('%u', '%d', -1)", targetAccountId, gm);
+        }
+        else
+        {
+            LoginDatabase.PExecute("DELETE FROM account_access WHERE id = '%u' AND RealmID = '%d'", targetAccountId, realmID);
+            LoginDatabase.PExecute("INSERT INTO account_access VALUES ('%u','%d','%d')", targetAccountId, gm, realmID);
+        }
+    //LoginDatabase.PExecute("UPDATE account_access SET gmlevel = '%i' WHERE id = '%u'", gm, targetAccountId);
 
     return true;
 }
@@ -1244,7 +1270,7 @@ void ChatHandler::ShowAchievementCriteriaListHelper(AchievementCriteriaEntry con
         ss << GetStrawberryString(LANG_COUNTER);
     else
     {
-        ss << " [" << AchievementMgr::GetCriteriaProgressMaxCounter(criEntry) << "]";
+        ss << " [" << AchievementMgr::GetCriteriaProgressMaxCounter(criEntry, achEntry) << "]";
 
         if (target && target->GetAchievementMgr().IsCompletedCriteria(criEntry, achEntry))
             ss << GetStrawberryString(LANG_COMPLETE);
@@ -1324,7 +1350,9 @@ bool ChatHandler::HandleAchievementAddCommand(char* args)
             if (mgr.IsCompletedCriteria(*itr, achEntry))
                 continue;
 
-            uint32 maxValue = AchievementMgr::GetCriteriaProgressMaxCounter(*itr);
+            uint32 maxValue = AchievementMgr::GetCriteriaProgressMaxCounter(*itr, achEntry);
+            if (maxValue == std::numeric_limits<uint32>::max())
+                maxValue = 1;                               // Exception for counter like achievements, set them only to 1
             mgr.SetCriteriaProgress(*itr, achEntry, maxValue, AchievementMgr::PROGRESS_SET);
         }
     }
@@ -1399,7 +1427,9 @@ bool ChatHandler::HandleAchievementCriteriaAddCommand(char* args)
 
     LocaleConstant loc = GetSessionDbcLocale();
 
-    uint32 maxValue = AchievementMgr::GetCriteriaProgressMaxCounter(criEntry);
+    uint32 maxValue = AchievementMgr::GetCriteriaProgressMaxCounter(criEntry, achEntry);
+    if (maxValue == std::numeric_limits<uint32>::max())
+        maxValue = 1;                                       // Exception for counter like achievements, set them only to 1
 
     AchievementMgr& mgr = target->GetAchievementMgr();
 
@@ -1464,7 +1494,9 @@ bool ChatHandler::HandleAchievementCriteriaRemoveCommand(char* args)
 
     LocaleConstant loc = GetSessionDbcLocale();
 
-    uint32 maxValue = AchievementMgr::GetCriteriaProgressMaxCounter(criEntry);
+    uint32 maxValue = AchievementMgr::GetCriteriaProgressMaxCounter(criEntry, achEntry);
+    if (maxValue == std::numeric_limits<uint32>::max())
+        maxValue = 1;                                       // Exception for counter like achievements, set them only to 1
 
     AchievementMgr& mgr = target->GetAchievementMgr();
 
@@ -1558,7 +1590,7 @@ bool ChatHandler::HandleSetSkillCommand(char* args)
     if (level <= 0 || level > maxskill || maxskill <= 0)
         return false;
 
-    target->SetSkill(skill, level, maxskill);
+    target->SetSkill(skill, level, maxskill, target->GetSkillStep(skill));
     PSendSysMessage(LANG_SET_SKILL, skill, sl->name[GetSessionDbcLocale()], tNameLink.c_str(), level, maxskill);
 
     return true;
@@ -4359,7 +4391,7 @@ bool ChatHandler::HandleExploreCheatCommand(char* args)
             ChatHandler(chr).PSendSysMessage(LANG_YOURS_EXPLORE_SET_NOTHING,GetNameLink().c_str());
     }
 
-    for (uint8 i=0; i<PLAYER_EXPLORED_ZONES_SIZE; ++i)
+    for (uint8 i=0; i < PLAYER_EXPLORED_ZONES_SIZE; ++i)
     {
         if (flag != 0)
         {
@@ -4370,22 +4402,6 @@ bool ChatHandler::HandleExploreCheatCommand(char* args)
             m_session->GetPlayer()->SetFlag(PLAYER_EXPLORED_ZONES_1+i,0);
         }
     }
-
-    return true;
-}
-
-bool ChatHandler::HandleHoverCommand(char* args)
-{
-    uint32 flag;
-    if (!ExtractOptUInt32(&args, flag, 1))
-        return false;
-
-    m_session->GetPlayer()->SetHover(flag);
-
-    if (flag)
-        SendSysMessage(LANG_HOVER_ENABLED);
-    else
-        SendSysMessage(LANG_HOVER_DISABLED);
 
     return true;
 }
@@ -4525,7 +4541,7 @@ bool ChatHandler::HandleShowAreaCommand(char* args)
     int offset = area / 32;
     uint32 val = (uint32)(1 << (area % 32));
 
-    if(area<0 || offset >= PLAYER_EXPLORED_ZONES_SIZE)
+    if (area < 0 || offset >= PLAYER_EXPLORED_ZONES_SIZE)
     {
         SendSysMessage(LANG_BAD_VALUE);
         SetSentErrorMessage(true);
@@ -4672,8 +4688,6 @@ bool ChatHandler::HandleAuctionItemCommand(char* args)
         SetSentErrorMessage(true);
         return false;
     }
-
-    Player* pl = m_session ? m_session->GetPlayer() : NULL;
 
     do
     {
@@ -5086,6 +5100,7 @@ bool ChatHandler::HandleResetSpecsCommand(char* args)
     {
         target->resetTalents(true,true);
         target->SendTalentsInfoData(false);
+
         ChatHandler(target).SendSysMessage(LANG_RESET_TALENTS);
         if (!m_session || m_session->GetPlayer() != target)
             PSendSysMessage(LANG_RESET_TALENTS_ONLINE,GetNameLink(target).c_str());
@@ -5952,11 +5967,8 @@ bool ChatHandler::HandleGMFlyCommand(char* args)
     if (!target)
         target = m_session->GetPlayer();
 
-    WorldPacket data(12);
-    data.SetOpcode(value ? SMSG_MOVE_SET_CAN_FLY : SMSG_MOVE_UNSET_CAN_FLY);
-    data << target->GetPackGUID();
-    data << uint32(0);                                      // unknown
-    target->SendMessageToSet(&data, true);
+    value ? target->HandleCanFly(true) : target->HandleCanFly(false);
+
     PSendSysMessage(LANG_COMMAND_FLYMODE_STATUS, GetNameLink(target).c_str(), args);
     return true;
 }
@@ -6129,6 +6141,7 @@ bool ChatHandler::HandleMovegensCommand(char* /*args*/)
             case RANDOM_MOTION_TYPE:        SendSysMessage(LANG_MOVEGENS_RANDOM);        break;
             case WAYPOINT_MOTION_TYPE:      SendSysMessage(LANG_MOVEGENS_WAYPOINT);      break;
             case CONFUSED_MOTION_TYPE:      SendSysMessage(LANG_MOVEGENS_CONFUSED);      break;
+
             case CHASE_MOTION_TYPE:
             {
                 Unit* target = NULL;
@@ -6520,7 +6533,7 @@ bool ChatHandler::HandleInstanceUnbindCommand(char* args)
                 ++itr;
                 continue;
             }
-            if(itr->first != player->GetMapId())
+            if (itr->first != player->GetMapId())
             {
                 DungeonPersistentState *save = itr->second.state;
                 std::string timeleft = secsToTimeString(save->GetResetTime() - time(NULL), true);
@@ -6541,6 +6554,7 @@ bool ChatHandler::HandleInstanceUnbindCommand(char* args)
         }
     }
     PSendSysMessage("instances unbound: %d", counter);
+
     return true;
 }
 

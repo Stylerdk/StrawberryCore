@@ -24,6 +24,7 @@
 #include "DBCEnums.h"
 #include "Path.h"
 #include "Platform/Define.h"
+#include "SharedDefines.h"
 
 #include <map>
 #include <set>
@@ -42,28 +43,28 @@ typedef char const* const* DBCString;                       //char* DBCStrings[M
 
 struct AchievementEntry
 {
-    uint32    ID;                                           // 0        m_ID
-    uint32    factionFlag;                                  // 1        m_faction -1=all, 0=horde, 1=alliance
-    uint32    mapID;                                        // 2        m_instance_id -1=none
-    //uint32 parentAchievement;                             // 3        m_supercedes its Achievement parent (can`t start while parent uncomplete, use its Criteria if don`t have own, use its progress on begin)
-    DBCString name;                                         // 4        m_title_lang
-    //char *description;                                    // 5        m_description_lang
-    uint32    categoryId;                                   // 6        m_category
-    uint32    points;                                       // 7        m_points
-    //uint32 OrderInCategory;                               // 8        m_ui_order
-    uint32    flags;                                        // 9        m_flags
-    //uint32    icon;                                       // 10       m_iconID
-    //char *titleReward;                                    // 11       m_reward_lang
-    uint32 count;                                           // 12       m_minimum_criteria - need this count of completed criterias (own or referenced achievement criterias)
-    uint32 refAchievement;                                  // 13       m_shares_criteria - referenced achievement (counting of all completed criterias)
+    uint32      ID;                                           // 0        m_ID
+    uint32      factionFlag;                                  // 1        m_faction -1=all, 0=horde, 1=alliance
+    uint32      mapID;                                        // 2        m_instance_id -1=none
+    uint32      parentAchievement;                            // 3        m_supercedes its Achievement parent (can`t start while parent uncomplete, use its Criteria if don`t have own, use its progress on begin)
+    DBCString   name;                                         // 4        m_title_lang
+    DBCString   description;                                  // 5        m_description_lang
+    uint32      categoryId;                                   // 6        m_category
+    uint32      points;                                       // 7        m_points
+    uint32      OrderInCategory;                              // 8        m_ui_order
+    uint32      flags;                                        // 9        m_flags
+    uint32      icon;                                         // 10       m_iconID
+    DBCString   titleReward;                                 // 11       m_reward_lang
+    uint32      count;                                        // 12       m_minimum_criteria - need this count of completed criterias (own or referenced achievement criterias)
+    uint32      refAchievement;                               // 13       m_shares_criteria - referenced achievement (counting of all completed criterias)
 };
 
 struct AchievementCategoryEntry
 {
     uint32    ID;                                           // 0        m_ID
     uint32    parentCategory;                               // 1        m_parent -1 for main category
-    //char *name;                                           // 2        m_name_lang
-    //uint32    sortOrder;                                  // 3        m_ui_order
+    DBCString name;                                           // 2        m_name_lang
+    uint32    sortOrder;                                  // 3        m_ui_order
 };
 
 struct AchievementCriteriaEntry
@@ -488,17 +489,17 @@ struct AchievementCriteriaEntry
             uint32  additionalRequirement2_value;           // 8        m_fail_asset
         } raw;
     };
-    DBCString name;                                         // 9        m_description_lang
-    uint32  completionFlag;                                 // 10       m_flags
-    uint32  timedCriteriaStartType;                         // 11       m_timer_start_event Only appears with timed achievements, seems to be the type of starting a timed Achievement, only type 1 and some of type 6 need manual starting
+    //uint32  unk1;                                         // 9
+    DBCString name;                                         // 10       m_description_lang
+    uint32  completionFlag;                                 // 11       m_flags
+    uint32  timedCriteriaStartType;                         // 12       m_timer_start_event Only appears with timed achievements, seems to be the type of starting a timed Achievement, only type 1 and some of type 6 need manual starting
                                                             //              1: ByEventId(?) (serverside IDs),    2: ByQuestId,   5: ByCastSpellId(?)
                                                             //              6: BySpellIdTarget(some of these are unknown spells, some not, some maybe spells)
                                                             //              7: ByKillNpcId,  9: ByUseItemId
-    uint32  timedCriteriaMiscId;                            // 12       m_timer_asset_id Alway appears with timed events, used internally to start the achievement, store
-    uint32  timeLimit;                                      // 13       m_timer_time time limit in seconds
-    uint32  showOrder;                                      // 14       m_ui_order  also used in achievement shift-links as index in state bitmask
-    //uint32 unk1;                                          // 15 only one value, still unknown
-    //uint32 unk2;                                          // 16 all zeros
+    uint32  timedCriteriaMiscId;                            // 13       m_timer_asset_id Alway appears with timed events, used internally to start the achievement, store
+    uint32  timeLimit;                                      // 14       m_timer_time time limit in seconds
+    uint32  showOrder;                                      // 15       m_ui_order  also used in achievement shift-links as index in state bitmask
+    //uint32 unk2;                                          // 16
     //uint32 moreRequirement[3];                            // 17-19
     //uint32 moreRequirementValue[3];                       // 20-22
 
@@ -1086,18 +1087,6 @@ struct HolidaysEntry
     //uint32 flags;                                         // 54       m_flags
 };
 
-struct ItemEntry
-{
-   uint32   ID;                                             // 0        m_ID
-   uint32   Class;                                          // 1        m_classID
-   uint32   SubClass;                                       // 2        m_subclassID (some items have strange subclasses)
-   int32    Unk0;                                           // 3        m_sound_override_subclassid
-   int32    Material;                                       // 4        m_material
-   uint32   DisplayId;                                      // 5        m_displayInfoID
-   uint32   InventoryType;                                  // 6        m_inventoryType
-   uint32   Sheath;                                         // 7        m_sheatheType
-};
-
 struct ItemArmorQualityEntry
 {
   uint32    Id;                                             // 0 item level
@@ -1151,14 +1140,6 @@ struct ItemDisplayInfoEntry
                                                             // 11       m_particleColorID
 };
 
-//struct ItemCondExtCostsEntry
-//{
-//    uint32      ID;
-//    uint32      condExtendedCost;                         // ItemPrototype::CondExtendedCost
-//    uint32      itemextendedcostentry;                    // ItemPrototype::ExtendedCost
-//    uint32      arenaseason;                              // arena season number(1-4)
-//};
-
 // common struct for:
 // ItemDamageAmmo.dbc
 // ItemDamageOneHand.dbc
@@ -1173,23 +1154,6 @@ struct ItemDamageEntry
   uint32    Id;                                             // 0 item level
   float     Value[7];                                       // 1-7 multiplier for item quality
   uint32    Id2;                                            // 8 item level
-};
-
-#define MAX_EXTENDED_COST_ITEMS 5
-
-struct ItemExtendedCostEntry
-{
-    uint32      ID;                                         // 0        m_ID
-    uint32      reqhonorpoints;                             // 1        m_honorPoints
-    uint32      reqarenapoints;                             // 2        m_arenaPoints
-    uint32      reqarenaslot;                               // 3        m_arenaBracket
-    uint32      reqitem[MAX_EXTENDED_COST_ITEMS];           // 5-8      m_itemID
-    uint32      reqitemcount[MAX_EXTENDED_COST_ITEMS];      // 9-13     m_itemCount
-    uint32      reqpersonalarenarating;                     // 14       m_requiredArenaRating
-    //uint32                                                // 15       m_itemPurchaseGroup
-    //uint32    someId[5];                                  // 16-20, may be currency id's
-    //uint32    someCount[5];                               // 21-25
-    //uint32    something[5];                               // 26-30
 };
 
 struct ItemLimitCategoryEntry
@@ -1290,26 +1254,26 @@ struct MailTemplateEntry
 
 struct MapEntry
 {
-    uint32  MapID;                                          // 0        m_ID
-    //char*       internalname;                             // 1        m_Directory
-    uint32  map_type;                                       // 2        m_InstanceType
-    //uint32 mapFlags;                                      // 3        m_Flags (0x100 - CAN_CHANGE_PLAYER_DIFFICULTY)
-    //uint32 unk4;                                          // 4 4.0.1
-    //uint32 isPvP;                                         // 5        m_PVP 0 or 1 for battlegrounds (not arenas)
-    DBCString name;                                         // 6        m_MapName_lang
-    uint32  linked_zone;                                    // 7        m_areaTableID
-    //char*     hordeIntro;                                 // 8        m_MapDescription0_lang
-    //char*     allianceIntro;                              // 9        m_MapDescription1_lang
-    uint32  multimap_id;                                    // 10       m_LoadingScreenID (LoadingScreens.dbc)
-    //float   BattlefieldMapIconScale;                      // 11       m_minimapIconScale
-    int32   ghost_entrance_map;                             // 12       m_corpseMapID map_id of entrance map in ghost mode (continent always and in most cases = normal entrance)
-    float   ghost_entrance_x;                               // 13       m_corpseX entrance x coordinate in ghost mode  (in most cases = normal entrance)
-    float   ghost_entrance_y;                               // 14       m_corpseY entrance y coordinate in ghost mode  (in most cases = normal entrance)
-    //uint32  timeOfDayOverride;                            // 15       m_timeOfDayOverride
-    uint32  addon;                                          // 16       m_expansionID
-    //uint32 unkTime;                                       // 17       m_raidOffset
-    //uint32 maxPlayers;                                    // 18       m_maxPlayers
-    //uint32 unk400;                                        // 19 new 4.0.0, mapid, related to phasing
+    uint32      MapID;                                          // 0        m_ID
+    DBCString   internalname;                                   // 1        m_Directory
+    uint32      map_type;                                       // 2        m_InstanceType
+    uint32      mapFlags;                                       // 3        m_Flags (0x100 - CAN_CHANGE_PLAYER_DIFFICULTY)
+    uint32      unk4;                                           // 4 4.0.1
+    uint32      isPvP;                                          // 5        m_PVP 0 or 1 for battlegrounds (not arenas)
+    DBCString   name;                                           // 6        m_MapName_lang
+    uint32      linked_zone;                                    // 7        m_areaTableID
+    DBCString   hordeIntro;                                     // 8        m_MapDescription0_lang
+    DBCString   allianceIntro;                                  // 9        m_MapDescription1_lang
+    uint32      multimap_id;                                    // 10       m_LoadingScreenID (LoadingScreens.dbc)
+    float       BattlefieldMapIconScale;                        // 11       m_minimapIconScale
+    int32       ghost_entrance_map;                             // 12       m_corpseMapID map_id of entrance map in ghost mode (continent always and in most cases = normal entrance)
+    float       ghost_entrance_x;                               // 13       m_corpseX entrance x coordinate in ghost mode  (in most cases = normal entrance)
+    float       ghost_entrance_y;                               // 14       m_corpseY entrance y coordinate in ghost mode  (in most cases = normal entrance)
+    uint32      timeOfDayOverride;                              // 15       m_timeOfDayOverride
+    uint32      addon;                                          // 16       m_expansionID
+    uint32      unkTime;                                        // 17       m_raidOffset
+    uint32      maxPlayers;                                     // 18       m_maxPlayers
+    uint32      NextPhaseMap;                                   // 19 - MapId for next phase.
 
     // Helpers
     uint32 Expansion() const { return addon; }
@@ -1339,13 +1303,13 @@ struct MapEntry
 
 struct MapDifficultyEntry
 {
-    //uint32      Id;                                       // 0        m_ID
+    uint32      Id;                                         // 0        m_ID
     uint32      MapId;                                      // 1        m_mapID
     uint32      Difficulty;                                 // 2        m_difficulty (for arenas: arena slot)
-    //char*       areaTriggerText;                          // 3        m_message_lang (text showed when transfer to map failed)
+    DBCString   areaTriggerText;                            // 3        m_message_lang (text showed when transfer to map failed)
     uint32      resetTime;                                  // 4,       m_raidDuration in secs, 0 if no fixed reset time
     uint32      maxPlayers;                                 // 5,       m_maxPlayers some heroic versions have 0 when expected same amount as in normal version
-    //char*       difficultyString;                         // 6        m_difficultystring
+    DBCString   difficultyString;                           // 6        m_difficultystring
 };
 
 struct MovieEntry
@@ -1364,6 +1328,13 @@ struct OverrideSpellDataEntry
     uint32      Spells[MAX_OVERRIDE_SPELLS];                // 1-10     m_spells
     //uint32      unk2;                                     // 11       m_flags
     //uint32      unk3;                                     // 12 possibly flag
+};
+
+struct PhaseEntry
+{
+    uint32 Id;                                              // 0
+    uint32 PhaseShift;                                      // 1
+    uint32 Flags;                                           // 2 - 0x0, 0x4, 0x8
 };
 
 struct PvPDifficultyEntry
@@ -1399,11 +1370,10 @@ struct QuestXPLevel
 
 struct RandomPropertiesPointsEntry
 {
-    //uint32  Id;                                           // 0        m_ID
-    uint32    itemLevel;                                    // 1        m_ItemLevel
-    uint32    EpicPropertiesPoints[5];                      // 2-6      m_Epic
-    uint32    RarePropertiesPoints[5];                      // 7-11     m_Superior
-    uint32    UncommonPropertiesPoints[5];                  // 12-16    m_Good
+    uint32    itemLevel;                                    // 0        m_ItemLevel
+    uint32    EpicPropertiesPoints[5];                      // 1-5      m_Epic
+    uint32    RarePropertiesPoints[5];                      // 6-10     m_Superior
+    uint32    UncommonPropertiesPoints[5];                  // 11-15    m_Good
 };
 
 struct ScalingStatDistributionEntry
@@ -1570,12 +1540,12 @@ struct SkillLineAbilityEntry
 
 struct SoundEntriesEntry
 {
-    uint32    Id;                                           // 0        m_ID
-    //uint32    Type;                                       // 1        m_soundType
-    //char*     InternalName;                               // 2        m_name
-    //char*     FileName[10];                               // 3-12     m_File[10]
-    //uint32    Unk13[10];                                  // 13-22    m_Freq[10]
-    //char*     Path;                                       // 23       m_DirectoryBase
+    uint32          Id;                                     // 0        m_ID
+    uint32          Type;                                   // 1        m_soundType
+    DBCString       InternalName;                           // 2        m_name
+    DBCString       FileName[10];                           // 3-12     m_File[10]
+    DBCString       Unk13[10];                              // 13-22    m_Freq[10]
+    DBCString       Path;                                   // 23       m_DirectoryBase
                                                             // 24       m_volumeFloat
                                                             // 25       m_flags
                                                             // 26       m_minDistance
@@ -1989,6 +1959,15 @@ struct SpellEntry
         return classOpt && classOpt->IsFitToFamily(family, mask);
     }
 
+    inline bool HasAttribute(SpellAttributes attribute) const { return Attributes & attribute; }
+    inline bool HasAttribute(SpellAttributesEx attribute) const { return AttributesEx & attribute; }
+    inline bool HasAttribute(SpellAttributesEx2 attribute) const { return AttributesEx2 & attribute; }
+    inline bool HasAttribute(SpellAttributesEx3 attribute) const { return AttributesEx3 & attribute; }
+    inline bool HasAttribute(SpellAttributesEx4 attribute) const { return AttributesEx4 & attribute; }
+    inline bool HasAttribute(SpellAttributesEx5 attribute) const { return AttributesEx5 & attribute; }
+    inline bool HasAttribute(SpellAttributesEx6 attribute) const { return AttributesEx6 & attribute; }
+    inline bool HasAttribute(SpellAttributesEx7 attribute) const { return AttributesEx7 & attribute; }
+
     private:
         // prevent creating custom entries (copy data from original in fact)
         SpellEntry(SpellEntry const&);                      // DON'T must have implementation
@@ -2114,7 +2093,7 @@ struct SummonPropertiesEntry
     uint32  Flags;                                          // 5        m_flags (enum SummonPropFlags)
 };
 
-#define MAX_TALENT_RANK 5
+#define MAX_TALENT_RANK 3
 #define MAX_PET_TALENT_RANK 3                               // use in calculations, expected <= MAX_TALENT_RANK
 
 struct TalentEntry
@@ -2123,14 +2102,12 @@ struct TalentEntry
     uint32    TalentTab;                                    // 1        m_tabID (TalentTab.dbc)
     uint32    Row;                                          // 2        m_tierID
     uint32    Col;                                          // 3        m_columnIndex
-    uint32    RankID[MAX_TALENT_RANK];                      // 4-8      m_spellRank
-    uint32    DependsOn;                                    // 9        m_prereqTalent (Talent.dbc)
-                                                            // 10-11 part of prev field
-    uint32    DependsOnRank;                                // 12       m_prereqRank
-                                                            // 13-14 part of prev field
-    //uint32  needAddInSpellBook;                           // 15       m_flags also need disable higest ranks on reset talent tree
-    //uint32  unk2;                                         // 16       m_requiredSpellID
-    //uint64  allowForPet;                                  // 17       m_categoryMask its a 64 bit mask for pet 1<<m_categoryEnumID in CreatureFamily.dbc
+    uint32    RankID[MAX_TALENT_RANK];                      // 4-6      m_spellRank
+    uint32    DependsOn[MAX_TALENT_RANK];                   // 9-11     m_prereqTalent (Talent.dbc)                                                            // 
+    uint8     DependsOnRank[MAX_TALENT_RANK];               // 11-13    part of prev field                                                          // 
+    uint8     needAddInSpellBook;                           // 14       m_flags also need disable higest ranks on reset talent tree
+    uint32    unk1;                                         // 15       m_requiredSpellID
+    //uint64  allowForPet;                                  // 16       m_categoryMask its a 64 bit mask for pet 1<<m_categoryEnumID in CreatureFamily.dbc
 };
 
 struct TalentTabEntry
@@ -2360,6 +2337,17 @@ struct WorldSafeLocsEntry
     float     y;                                            // 3        m_locY
     float     z;                                            // 4        m_locZ
     //char*   name;                                         // 5        m_AreaName_lang
+};
+
+struct WorldPvPAreaEntry
+{
+    uint32      Id;                                         // 0 m_battlefieldId
+    uint32      ZoneId;                                     // 1 m_zoneId
+    uint32      NoWarTimeState;                             // 2 m_noWarTimeState
+    uint32      WarTimeState;                               // 3 m_warTimeState
+    uint32      ukn1;                                       // 4 m_unk1 not known yet, both 900
+    uint32      minLevel;                                   // 5 m_minLevel
+    uint32      ukn2;                                       // 6 m_unk2
 };
 
 // GCC have alternative #pragma pack() syntax and old gcc version not support pack(pop), also any gcc version not support it at some platform

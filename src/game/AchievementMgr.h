@@ -288,7 +288,7 @@ class AchievementMgr
             return iter != m_criteriaProgress.end() ? iter->second.counter : 0;
         }
 
-        static uint32 GetCriteriaProgressMaxCounter(AchievementCriteriaEntry const* entry);
+        static uint32 GetCriteriaProgressMaxCounter(AchievementCriteriaEntry const* entry, AchievementEntry const* achievement);
 
         // Use PROGRESS_SET only for reset/downgrade criteria progress
         enum ProgressType { PROGRESS_SET, PROGRESS_ACCUMULATE, PROGRESS_HIGHEST };
@@ -302,7 +302,6 @@ class AchievementMgr
         void IncompletedAchievement(AchievementEntry const* entry);
         bool IsCompletedAchievement(AchievementEntry const* entry);
         void CompleteAchievementsWithRefs(AchievementEntry const* entry);
-        void BuildAllDataPacket(WorldPacket *data);
 
         Player* m_player;
         CriteriaProgressMap m_criteriaProgress;

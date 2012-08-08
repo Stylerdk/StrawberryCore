@@ -34,7 +34,7 @@
 #include <libpq-fe.h>
 #endif
 
-class PostgreSQLConnection : public SqlConnection
+class MANGOS_DLL_SPEC PostgreSQLConnection : public SqlConnection
 {
     public:
         PostgreSQLConnection() : mPGconn(NULL) {}
@@ -59,7 +59,7 @@ class PostgreSQLConnection : public SqlConnection
         PGconn *mPGconn;
 };
 
-class DatabasePostgre : public Database
+class MANGOS_DLL_SPEC DatabasePostgre : public Database
 {
     friend class MaNGOS::OperatorNew<DatabasePostgre>;
 

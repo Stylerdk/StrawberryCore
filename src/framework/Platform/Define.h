@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010-2012 Strawberry-Pr0jcts <http://strawberry-pr0jcts.com/>
- * Copyright (C) 2005-2011 STRAWBERRY <http://getSTRAWBERRY.com/>
+ * Copyright (C) 2005-2011 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -52,7 +52,6 @@ typedef ACE_SHLIB_HANDLE STRAWBERRY_LIBRARY_HANDLE;
 #define STRAWBERRY_PATH_MAX PATH_MAX                            // ace/os_include/os_limits.h -> ace/Basic_Types.h
 
 #if PLATFORM == PLATFORM_WINDOWS
-#  define SKYFIRE_PATH_MAX MAX_PATH
 #  ifndef DECLSPEC_NORETURN
 #    define DECLSPEC_NORETURN __declspec(noreturn)
 #  endif //DECLSPEC_NORETURN
@@ -62,7 +61,6 @@ typedef ACE_SHLIB_HANDLE STRAWBERRY_LIBRARY_HANDLE;
 #  define STRAWBERRY_EXPORT __declspec(dllexport)
 #  define STRAWBERRY_IMPORT __cdecl
 #else //PLATFORM != PLATFORM_WINDOWS
-#  define SKYFIRE_PATH_MAX PATH_MAX
 #  define DECLSPEC_NORETURN
 #  define DECLSPEC_DEPRECATED
 #  define STRAWBERRY_EXPORT export
@@ -113,5 +111,20 @@ typedef uint32      DWORD;
 #endif
 
 typedef uint64 OBJECT_HANDLE;
+
+enum
+{
+    FT_NA='x',                                              // ignore/ default, 4 byte size, in Source String means field is ignored, in Dest String means field is filled with default value
+    FT_NA_BYTE='X',                                         // ignore/ default, 1 byte size, see above
+    FT_NA_FLOAT='F',                                        // ignore/ default,  float size, see above
+    FT_NA_POINTER='p',                                      // fill default value into dest, pointer size, Use this only with static data (otherwise mem-leak)  
+    FT_STRING='s',                                          //char*
+    FT_FLOAT='f',                                           //float
+    FT_INT='i',                                             //uint32
+    FT_BYTE='b',                                            //uint8
+    FT_SORT='d',                                            //sorted by this field, field is not included
+    FT_IND='n',                                             //the same,but parsed to data
+    FT_LOGIC='l'                                            //Logical (boolean)
+};
 
 #endif //STRAWBERRY_DEFINE_H

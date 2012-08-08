@@ -42,11 +42,12 @@ void WorldSession::SendNameCacheOpcode(Player *p)
     WorldPacket data( SMSG_NAME_CACHE, (8+1+1+1+1+1+10) );
     data << p->GetPackGUID();                               // player guid
     data << uint8(0);                                       // added in 3.1; if > 1, then end of packet
-    data << p->GetName();                                   // played name
+    data << p->GetName();
     data << uint8(0);                                       // realm name for cross realm BG usage
-    data << uint8(p->getRace());
-    data << uint8(p->getGender());
-    data << uint8(p->getClass());
+    data << uint8(p->getRace());                                   // race
+    data << uint8(p->getGender());                                 // gender
+    data << uint8(p->getClass());                                  // class
+
     if(DeclinedName const* names = p->GetDeclinedNames())
     {
         data << uint8(1);                                   // is declined
@@ -236,7 +237,7 @@ void WorldSession::HandleGameObjectStatsOpcode( WorldPacket & recv_data )
             }
         }
         DETAIL_LOG("WORLD: CMSG_GAME_OBJECT_STATS '%s' - Entry: %u. ", info->name, entryID);
-        WorldPacket data ( CMSG_GAME_OBJECT_STATS, 150 );
+        WorldPacket data (SMSG_GAME_OBJECT_STATS, 150);
         data << uint32(entryID);
         data << uint32(info->type);
         data << uint32(info->displayId);
@@ -325,13 +326,13 @@ void WorldSession::HandleNpcTextQueryOpcode( WorldPacket & recv_data )
     recv_data >> textID;
     recv_data >> guid;
 
-    DETAIL_LOG("WORLD: CMSG_NPC_TEXT_QUERY ID '%u'", textID);
+    DETAIL_LOG("WORLD: CMSG_NPC_CACHE ID '%u'", textID);
 
     _player->SetTargetGuid(guid);
 
     GossipText const* pGossip = sObjectMgr.GetGossipText(textID);
 
-    WorldPacket data( SMSG_NPC_TEXT_UPDATE, 100 );          // guess size
+    WorldPacket data( SMSG_NPC_CACHE, 100 );          // guess size
     data << textID;
 
     if (!pGossip)
@@ -389,12 +390,12 @@ void WorldSession::HandleNpcTextQueryOpcode( WorldPacket & recv_data )
 
     SendPacket( &data );
 
-    DEBUG_LOG( "WORLD: Sent SMSG_NPC_TEXT_UPDATE" );
+    DEBUG_LOG( "WORLD: Sent SMSG_NPC_CACHE" );
 }
 
 void WorldSession::HandlePageTextQueryOpcode( WorldPacket & recv_data )
 {
-    DETAIL_LOG("WORLD: Received CMSG_PAGE_TEXT_QUERY");
+    DETAIL_LOG("WORLD: Received CMSG_PAGE_TEXT_CACHE");
     recv_data.hexlike();
 
     uint32 pageID;
@@ -405,7 +406,7 @@ void WorldSession::HandlePageTextQueryOpcode( WorldPacket & recv_data )
     {
         PageText const *pPage = sPageTextStore.LookupEntry<PageText>( pageID );
                                                             // guess size
-        WorldPacket data( SMSG_PAGE_TEXT_QUERY_RESPONSE, 50 );
+        WorldPacket data(SMSG_PAGE_TEXT_CACHE, 50);
         data << pageID;
 
         if (!pPage)
@@ -435,7 +436,7 @@ void WorldSession::HandlePageTextQueryOpcode( WorldPacket & recv_data )
         }
         SendPacket( &data );
 
-        DEBUG_LOG( "WORLD: Sent SMSG_PAGE_TEXT_QUERY_RESPONSE" );
+        DEBUG_LOG("WORLD: Sent SMSG_PAGE_TEXT_CACHE");
     }
 }
 

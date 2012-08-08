@@ -20,7 +20,7 @@
 #ifndef STRAWBERRY_DBCSFRM_H
 #define STRAWBERRY_DBCSFRM_H
 
-const char Achievementfmt[]="niixsxiixixxii";
+const char Achievementfmt[]="niiissiiiiisii";
 const char AchievementCriteriafmt[]="niiiiiiiixsiiiiixxxxxxx";
 const char AreaTableEntryfmt[]="iiinixxxxxisixxxxxxxxxxxxx";
 const char AreaGroupEntryfmt[]="niiiiiii";
@@ -74,20 +74,20 @@ const char ItemBagFamilyfmt[]="nx";
 //const char ItemDisplayTemplateEntryfmt[]="nxxxxxxxxxxixxxxxxxxxxx";
 //const char ItemCondExtCostsEntryfmt[]="xiii";
 const char ItemDamagefmt[]="nfffffffi";
-const char ItemExtendedCostEntryfmt[]="niiiiiiiiiiiiiixxxxxxxxxxxxxxxx";
 const char ItemLimitCategoryEntryfmt[]="nxii";
 const char ItemRandomPropertiesfmt[]="nxiiiiis";
 const char ItemRandomSuffixfmt[]="nsxiiiiiiiiii";
 const char ItemSetEntryfmt[]="dsxxxxxxxxxxxxxxxxxiiiiiiiiiiiiiiiiii";
 const char LockEntryfmt[]="niiiiiiiiiiiiiiiiiiiiiiiixxxxxxxx";
 const char MailTemplateEntryfmt[]="nxs";
-const char MapEntryfmt[]="nxixxxsixxixiffxixxx";
-const char MapDifficultyEntryfmt[]="diixiix";
+const char MapEntryfmt[]="nsiiiisissififfiiiii";
+const char MapDifficultyEntryfmt[]="niisiis";
 const char MovieEntryfmt[]="nxxx";
 const char OverrideSpellDatafmt[]="niiiiiiiiiixx";
 const char QuestFactionRewardfmt[]="niiiiiiiiii";
 const char QuestSortEntryfmt[]="nx";
 const char QuestXPLevelfmt[]="niiiiiiiiii";
+const char Phasefmt[]="nii";
 const char PvPDifficultyfmt[]="diiiii";
 const char RandomPropertiesPointsfmt[]="niiiiiiiiiiiiiii";
 const char ScalingStatDistributionfmt[]="niiiiiiiiiiiiiiiiiiiixi";
@@ -95,7 +95,7 @@ const char ScalingStatValuesfmt[]="iniiiiiiiiiiiiiiiiiiiixxxxxxxxxxxxxxxxxxxxxxx
 const char SkillLinefmt[]="nisxixi";
 const char SkillLineAbilityfmt[]="niiiixxiiiiixx";
 const char SkillRaceClassInfofmt[]="diiiiixxx";
-const char SoundEntriesfmt[]="nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+const char SoundEntriesfmt[]="nissssssssssssssssssssssxxxxxxxxxxx";
 const char SpellCastTimefmt[]="nixx";
 const char SpellDurationfmt[]="niii";
 const char SpellDifficultyfmt[]="niiii";
@@ -125,7 +125,7 @@ const char SpellRuneCostfmt[]="niiii";
 const char SpellShapeshiftFormfmt[]="nxxiixiiixxiiiiiiiixx";
 //const char StableSlotPricesfmt[] = "ni"; // removed
 const char SummonPropertiesfmt[] = "niiiii";
-const char TalentEntryfmt[]="niiiiiiiiixxixxxxxx";
+const char TalentEntryfmt[]="niiiiiiixxiiibbbbxx";
 const char TalentTabEntryfmt[]="nxxiiixxxxx";
 const char TaxiNodesEntryfmt[]="nifffsiixxx";
 const char TaxiPathEntryfmt[]="niii";
@@ -137,5 +137,6 @@ const char WMOAreaTableEntryfmt[]="niiixxxxxiixxxx";
 const char WorldMapAreaEntryfmt[]="xinxffffixxxxx";
 const char WorldMapOverlayEntryfmt[]="nxiiiixxxxxxxxx";
 const char WorldSafeLocsEntryfmt[]="nifffx";
+const char WorldPvPAreaEnrtyfmt[]="niiiiii";
 
 #endif

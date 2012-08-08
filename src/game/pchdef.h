@@ -16,3 +16,4 @@
 #include "ScriptBase/Basic/sc_gossip.h"
 #include "ScriptBase/Basic/sc_grid_searchers.h"
 #include "ScriptBase/Basic/sc_instance.h"
+#include "ScriptBase/Event/EventScripts.h"

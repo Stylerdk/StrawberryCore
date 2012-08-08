@@ -130,7 +130,13 @@ enum PartyResult
     ERR_VOTE_KICK_REASON_NEEDED         = 27,
     ERR_PARTY_LFG_BOOT_DUNGEON_COMPLETE = 28,
     ERR_PARTY_LFG_BOOT_LOOT_ROLLS       = 29,
-    ERR_PARTY_LFG_TELEPORT_IN_COMBAT    = 30
+    ERR_PARTY_LFG_TELEPORT_IN_COMBAT    = 30,
+    ERR_PARTY_ALREADY_IN_BATTLEGROUND_QUEUE = 31,
+    ERR_PARTY_CONFIRMING_BATTLEGROUND_QUEUE = 32,
+    ERR_CROSS_REALM_RAID_INVITE         = 33,
+    ERR_RAID_DISALLOWED_BY_CROSS_REALM  = 34,
+    ERR_PARTY_ROLE_NOT_AVAILABLE        = 35,
+    ERR_PARTY_LFG_BOOT_VOTE_REGISTERED  = 36,
 };
 
 enum LfgJoinResult
@@ -254,7 +260,7 @@ class WorldSession
         void SendLfgUpdate(bool isGroup, LfgUpdateType updateType, uint32 id);
         void SendPartyResult(PartyOperation operation, const std::string& member, PartyResult res);
         void SendAreaTriggerMessage(const char* Text, ...) ATTR_PRINTF(2,3);
-        void SendSetPhaseShift(uint32 phaseShift);
+        void SendSetPhaseShift(uint32 phaseMask, uint16 mapId = 0);
         void SendQueryTimeResponse();
         void SendRedirectClient(std::string& ip, uint16 port);
 
@@ -491,7 +497,6 @@ class WorldSession
         void HandleSetContactNotesOpcode(WorldPacket& recvPacket);
         void HandleBugOpcode(WorldPacket& recvPacket);
         void HandleSetAmmoOpcode(WorldPacket& recvPacket);
-        void HandleItemNameQueryOpcode(WorldPacket& recvPacket);
 
         void HandleAreaTriggerOpcode(WorldPacket& recvPacket);
 
@@ -580,10 +585,13 @@ class WorldSession
         void HandleGuildSetPublicNoteOpcode(WorldPacket& recvPacket);
         void HandleGuildSetOfficerNoteOpcode(WorldPacket& recvPacket);
         void HandleGuildRankOpcode(WorldPacket& recvPacket);
+        void HandleGuildRanksOpcode(WorldPacket& recvPacket);
+        void HandleGuildOrderRankOpcode(WorldPacket& recvPacket);
         void HandleGuildAddRankOpcode(WorldPacket& recvPacket);
         void HandleGuildDelRankOpcode(WorldPacket& recvPacket);
-        void HandleGuildChangeInfoTextOpcode(WorldPacket& recvPacket);
+        void HandleGuildInfoTextOpcode(WorldPacket& recvPacket);
         void HandleSaveGuildEmblemOpcode(WorldPacket& recvPacket);
+        void HandleGuildRewardsListOpcode(WorldPacket& recvPacket);
 
         void HandleTaxiNodeStatusQueryOpcode(WorldPacket& recvPacket);
         void HandleTaxiQueryAvailableNodes(WorldPacket& recvPacket);
@@ -652,7 +660,6 @@ class WorldSession
         void HandleSwapInvItemOpcode(WorldPacket& recvPacket);
         void HandleDestroyItemOpcode(WorldPacket& recvPacket);
         void HandleAutoEquipItemOpcode(WorldPacket& recvPacket);
-        void HandleItemQuerySingleOpcode(WorldPacket& recvPacket);
         void HandleSellItemOpcode(WorldPacket& recvPacket);
         void HandleBuyItemInSlotOpcode(WorldPacket& recvPacket);
         void HandleBuyItemOpcode(WorldPacket& recvPacket);
@@ -779,6 +786,8 @@ class WorldSession
         void HandleBattlefieldListOpcode( WorldPacket &recv_data );
         void HandleLeaveBattlefieldOpcode( WorldPacket &recv_data );
         void HandleBattlemasterJoinArena( WorldPacket &recv_data );
+        void HandleBattlefieldJoinQueueOpcode( WorldPacket &recv_data );
+        void HandleBattlefieldEntryInviteResponseOpcode( WorldPacket &recv_data );
         void HandleReportPvPAFK( WorldPacket &recv_data );
 
         void HandleWardenDataOpcode(WorldPacket& recv_data);
@@ -840,7 +849,6 @@ class WorldSession
         void HandleGuildBankDepositMoney(WorldPacket& recv_data);
         void HandleGuildBankWithdrawMoney(WorldPacket& recv_data);
         void HandleGuildBankSwapItems(WorldPacket& recv_data);
-
         void HandleGuildBankUpdateTab(WorldPacket& recv_data);
         void HandleGuildBankBuyTab(WorldPacket& recv_data);
         void HandleQueryGuildBankTabText(WorldPacket& recv_data);
@@ -878,6 +886,9 @@ class WorldSession
         void HandleQuestPOIQueryOpcode(WorldPacket& recv_data);
 
         void HandleUpdateObjectFailure(WorldPacket& recv_data);
+        void HandlePlayerViolenceLevel(WorldPacket& recv_data);
+        void HandleLogDisconnect(WorldPacket& recv_data);
+
     private:
         // private trade methods
         void moveItems(Item* myItems[], Item* hisItems[]);

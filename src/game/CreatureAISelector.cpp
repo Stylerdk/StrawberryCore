@@ -20,10 +20,10 @@
 #include "CreatureAISelector.h"
 #include "Creature.h"
 #include "CreatureAIImpl.h"
+#include "Spell.h"
 #include "NullCreatureAI.h"
 #include "Policies/SingletonImp.h"
 #include "MovementGenerator.h"
-#include "ScriptBase/Event/EventScripts.h"
 #include "Pet.h"
 
 INSTANTIATE_SINGLETON_1(CreatureAIRegistry);

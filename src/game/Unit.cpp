@@ -55,6 +55,7 @@
 
 #include <math.h>
 #include <stdarg.h>
+#include "DB2Stores.h"
 
 float baseMoveSpeed[MAX_MOVE_TYPE] =
 {
@@ -100,7 +101,7 @@ Unit::Unit() :
     m_objectType |= TYPEMASK_UNIT;
     m_objectTypeId = TYPEID_UNIT;
 
-    m_updateFlag = (UPDATEFLAG_LIVING | UPDATEFLAG_HAS_POSITION);
+    m_updateFlag = UPDATEFLAG_LIVING;
 
     m_attackTimer[BASE_ATTACK]   = 0;
     m_attackTimer[OFF_ATTACK]    = 0;
@@ -344,10 +345,10 @@ bool Unit::haveOffhandWeapon() const
     else
     {
         uint32 ItemId = GetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + 1);
-        /*ItemEntry const* itemInfo = sItemStore.LookupEntry(ItemId);
+        ItemEntry const* itemInfo = sItemStore.LookupEntry(ItemId);
 
         if (itemInfo && itemInfo->Class == ITEM_CLASS_WEAPON)
-            return true;*/
+            return true;
 
         return false;
     }
@@ -1116,7 +1117,21 @@ void Unit::CastCustomSpell(Unit* Victim, SpellEntry const *spellInfo, int32 cons
 
     SpellCastTargets targets;
     targets.setUnitTarget( Victim );
+
+    if (spellInfo->GetTargets() & TARGET_FLAG_DEST_LOCATION)
+        targets.setDestination(Victim->GetPositionX(), Victim->GetPositionY(), Victim->GetPositionZ());
+    if (spellInfo->GetTargets() & TARGET_FLAG_SOURCE_LOCATION)
+        if (WorldObject* caster = spell->GetCastingObject())
+            targets.setSource(caster->GetPositionX(), caster->GetPositionY(), caster->GetPositionZ());
+
     spell->m_CastItem = castItem;
+
+    if (spellInfo->GetTargets() & TARGET_FLAG_DEST_LOCATION)
+        targets.setDestination(Victim->GetPositionX(), Victim->GetPositionY(), Victim->GetPositionZ());
+    if (spellInfo->GetTargets() & TARGET_FLAG_SOURCE_LOCATION)
+        if (WorldObject* caster = spell->GetCastingObject())
+            targets.setSource(caster->GetPositionX(), caster->GetPositionY(), caster->GetPositionZ());
+
     spell->prepare(&targets, triggeredByAura);
 }
 
@@ -1163,7 +1178,16 @@ void Unit::CastSpell(float x, float y, float z, SpellEntry const *spellInfo, boo
     Spell *spell = new Spell(this, spellInfo, triggered, originalCaster, triggeredBy);
 
     SpellCastTargets targets;
-    targets.setDestination(x, y, z);
+
+    if (spellInfo->GetTargets() & TARGET_FLAG_DEST_LOCATION)
+        targets.setDestination(x, y, z);
+    if (spellInfo->GetTargets() & TARGET_FLAG_SOURCE_LOCATION)
+        targets.setSource(x, y, z);
+
+    // Spell cast with x,y,z but without dbc target-mask, set destination
+    if (!(targets.m_targetMask & (TARGET_FLAG_DEST_LOCATION | TARGET_FLAG_SOURCE_LOCATION)))
+        targets.setDestination(x, y, z);
+
     spell->m_CastItem = castItem;
     spell->prepare(&targets, triggeredByAura);
 }
@@ -1357,8 +1381,8 @@ void Unit::CalculateMeleeDamage(Unit *pVictim, uint32 damage, CalcDamageInfo *da
     // Add melee damage bonus
     damage = MeleeDamageBonusDone(damageInfo->target, damage, damageInfo->attackType);
     damage = damageInfo->target->MeleeDamageBonusTaken(this, damage, damageInfo->attackType);
-    // Calculate armor reduction
 
+    // Calculate armor reduction
     uint32 armor_affected_damage = CalcNotIgnoreDamageReduction(damage, damageInfo->damageSchoolMask);
     damageInfo->damage = damage - armor_affected_damage + CalcArmorReducedDamage(damageInfo->target, armor_affected_damage);
     damageInfo->cleanDamage += damage - damageInfo->damage;
@@ -1971,8 +1995,8 @@ void Unit::CalculateDamageAbsorbAndResist(Unit *pCaster, SpellSchoolMask schoolM
                     reflectTriggeredBy->SetInUse(true);     // lock aura from final deletion until processing
                     break;
                 }
-                if (spellProto->Id == 39228 || // Argussian Compass
-                    spellProto->Id == 60218)   // Essence of Gossamer
+                if (spellProto->Id == 39228 ||              // Argussian Compass
+                    spellProto->Id == 60218)                // Essence of Gossamer
                 {
                     // Max absorb stored in 1 dummy effect
                     int32 max_absorb = spellProto->CalculateSimpleValue(EFFECT_INDEX_1);
@@ -2008,9 +2032,9 @@ void Unit::CalculateDamageAbsorbAndResist(Unit *pCaster, SpellSchoolMask schoolM
                 if (spellProto->SpellIconID == 2109)
                 {
                     if (!preventDeathSpell &&
-                        GetTypeId()==TYPEID_PLAYER &&           // Only players
+                        GetTypeId()==TYPEID_PLAYER &&       // Only players
                         !((Player*)this)->HasSpellCooldown(31231) &&
-                                                                // Only if no cooldown
+                                                            // Only if no cooldown
                         roll_chance_i((*i)->GetModifier()->m_amount))
                                                                 // Only if roll
                     {
@@ -2161,10 +2185,9 @@ void Unit::CalculateDamageAbsorbAndResist(Unit *pCaster, SpellSchoolMask schoolM
     // Cast back reflect damage spell
     if (canReflect && reflectSpell)
     {
-        CastCustomSpell(pCaster,  reflectSpell, &reflectDamage, NULL, NULL, true, NULL, reflectTriggeredBy);
+        CastCustomSpell(pCaster, reflectSpell, &reflectDamage, NULL, NULL, true, NULL, reflectTriggeredBy);
         reflectTriggeredBy->SetInUse(false);                // free lock from deletion
     }
-
 
     // absorb by mana cost
     AuraList const& vManaShield = GetAurasByType(SPELL_AURA_MANA_SHIELD);
@@ -2364,7 +2387,7 @@ void Unit::CalculateAbsorbResistBlock(Unit *pCaster, SpellNonMeleeDamage *damage
     }
 
     uint32 absorb_affected_damage = pCaster->CalcNotIgnoreAbsorbDamage(damageInfo->damage,GetSpellSchoolMask(spellProto),spellProto);
-    CalculateDamageAbsorbAndResist(pCaster, GetSpellSchoolMask(spellProto), SPELL_DIRECT_DAMAGE, absorb_affected_damage, &damageInfo->absorb, &damageInfo->resist, !(spellProto->AttributesEx2 & SPELL_ATTR_EX2_CANT_REFLECTED));
+    CalculateDamageAbsorbAndResist(pCaster, GetSpellSchoolMask(spellProto), SPELL_DIRECT_DAMAGE, absorb_affected_damage, &damageInfo->absorb, &damageInfo->resist, !spellProto->HasAttribute(SPELL_ATTR_EX2_CANT_REFLECTED));
     damageInfo->damage-= damageInfo->absorb + damageInfo->resist;
 }
 
@@ -2780,7 +2803,7 @@ bool Unit::IsSpellBlocked(Unit *pCaster, SpellEntry const *spellEntry, WeaponAtt
     if (spellEntry)
     {
         // Some spells cannot be blocked
-        if (spellEntry->Attributes & SPELL_ATTR_IMPOSSIBLE_DODGE_PARRY_BLOCK)
+        if (spellEntry->HasAttribute(SPELL_ATTR_IMPOSSIBLE_DODGE_PARRY_BLOCK))
             return false;
     }
 
@@ -2870,7 +2893,7 @@ SpellMissInfo Unit::MeleeSpellHitResult(Unit *pVictim, SpellEntry const *spell)
 
     uint32 missChance = uint32(MeleeSpellMissChance(pVictim, attType, fullSkillDiff, spell)*100.0f);
     // Roll miss
-    uint32 tmp = spell->AttributesEx3 & SPELL_ATTR_EX3_CANT_MISS ? 0 : missChance;
+    uint32 tmp = spell->HasAttribute(SPELL_ATTR_EX3_CANT_MISS) ? 0 : missChance;
     if (roll < tmp)
         return SPELL_MISS_MISS;
 
@@ -2896,7 +2919,7 @@ SpellMissInfo Unit::MeleeSpellHitResult(Unit *pVictim, SpellEntry const *spell)
     bool canParry = true;
 
     // Same spells cannot be parry/dodge
-    if (spell->Attributes & SPELL_ATTR_IMPOSSIBLE_DODGE_PARRY_BLOCK)
+    if (spell->HasAttribute(SPELL_ATTR_IMPOSSIBLE_DODGE_PARRY_BLOCK))
         return SPELL_MISS_NONE;
 
     bool from_behind = !pVictim->HasInArc(M_PI_F,this);
@@ -3057,7 +3080,7 @@ SpellMissInfo Unit::MagicSpellHitResult(Unit *pVictim, SpellEntry const *spell)
     if (HitChance <  100) HitChance =  100;
     if (HitChance > 10000) HitChance = 10000;
 
-    int32 tmp = spell->AttributesEx3 & SPELL_ATTR_EX3_CANT_MISS ? 0 : (10000 - HitChance);
+    int32 tmp = spell->HasAttribute(SPELL_ATTR_EX3_CANT_MISS) ? 0 : (10000 - HitChance);
 
     int32 rand = irand(0,10000);
 
@@ -3281,7 +3304,7 @@ float Unit::GetUnitBlockChance() const
         if(player->CanBlock() && player->CanUseEquippedWeapon(OFF_ATTACK))
         {
             Item *tmpitem = player->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_OFFHAND);
-            if(tmpitem && !tmpitem->IsBroken() && tmpitem->GetProto()->Block)
+            if(tmpitem && !tmpitem->IsBroken())
                 return GetFloatValue(PLAYER_BLOCK_PERCENTAGE);
         }
         // is player but has no block ability or no not broken shield equipped
@@ -3929,7 +3952,7 @@ bool Unit::AddSpellAuraHolder(SpellAuraHolder *holder)
                     continue;
 
                 // Carry over removed Aura's remaining damage if Aura still has ticks remaining
-                if (foundHolder->GetSpellProto()->AttributesEx4 & SPELL_ATTR_EX4_STACK_DOT_MODIFIER)
+                if (foundHolder->GetSpellProto()->HasAttribute(SPELL_ATTR_EX4_STACK_DOT_MODIFIER))
                 {
                     for (int32 i = 0; i < MAX_EFFECT_INDEX; ++i)
                     {
@@ -3996,7 +4019,6 @@ bool Unit::AddSpellAuraHolder(SpellAuraHolder *holder)
 
             if(stop)
                 break;
-
         }
     }
 
@@ -4320,7 +4342,7 @@ void Unit::RemoveAuraHolderDueToSpellByDispel(uint32 spellId, uint32 stackAmount
     SpellEntry const* spellEntry = sSpellStore.LookupEntry(spellId);
     SpellClassOptionsEntry const* classOptions = spellEntry->GetSpellClassOptions();
 
-    // Custom dispel cases
+    // Custom dispel case
     // Unstable Affliction
     if(classOptions && classOptions->SpellFamilyName == SPELLFAMILY_WARLOCK && (classOptions->SpellFamilyFlags & UI64LIT(0x010000000000)))
     {
@@ -4555,7 +4577,7 @@ void Unit::RemoveAurasWithAttribute(uint32 flags)
 {
     for (SpellAuraHolderMap::iterator iter = m_spellAuraHolders.begin(); iter != m_spellAuraHolders.end(); )
     {
-        if (iter->second->GetSpellProto()->Attributes & flags)
+        if (iter->second->GetSpellProto()->HasAttribute((SpellAttributes)flags))
         {
             RemoveSpellAuraHolder(iter->second);
             iter = m_spellAuraHolders.begin();
@@ -4766,11 +4788,11 @@ void Unit::RemoveArenaAuras(bool onleave)
     // used to remove positive visible auras in arenas
     for(SpellAuraHolderMap::iterator iter = m_spellAuraHolders.begin(); iter != m_spellAuraHolders.end();)
     {
-        if (!(iter->second->GetSpellProto()->AttributesEx4 & SPELL_ATTR_EX4_UNK21) &&
+        if (!iter->second->GetSpellProto()->HasAttribute(SPELL_ATTR_EX4_UNK21) &&
                                                             // don't remove stances, shadowform, pally/hunter auras
             !iter->second->IsPassive() &&                   // don't remove passive auras
-            (!(iter->second->GetSpellProto()->Attributes & SPELL_ATTR_UNAFFECTED_BY_INVULNERABILITY) ||
-            !(iter->second->GetSpellProto()->Attributes & SPELL_ATTR_UNK8)) &&
+            (!iter->second->GetSpellProto()->HasAttribute(SPELL_ATTR_UNAFFECTED_BY_INVULNERABILITY) ||
+            !iter->second->GetSpellProto()->HasAttribute(SPELL_ATTR_UNK8)) &&
                                                             // not unaffected by invulnerability auras or not having that unknown flag (that seemed the most probable)
             (iter->second->IsPositive() != onleave))        // remove positive buffs on enter, negative buffs on leave
         {
@@ -4901,7 +4923,7 @@ void Unit::RemoveDynObject(uint32 spellid)
 {
     if(m_dynObjGUIDs.empty())
         return;
-    for (DynObjectGUIDs::iterator i = m_dynObjGUIDs.begin(); i != m_dynObjGUIDs.end();)
+    for (GuidList::iterator i = m_dynObjGUIDs.begin(); i != m_dynObjGUIDs.end();)
     {
         DynamicObject* dynObj = GetMap()->GetDynamicObject(*i);
         if(!dynObj)
@@ -4930,7 +4952,7 @@ void Unit::RemoveAllDynObjects()
 
 DynamicObject * Unit::GetDynObject(uint32 spellId, SpellEffectIndex effIndex)
 {
-    for (DynObjectGUIDs::iterator i = m_dynObjGUIDs.begin(); i != m_dynObjGUIDs.end();)
+    for (GuidList::iterator i = m_dynObjGUIDs.begin(); i != m_dynObjGUIDs.end();)
     {
         DynamicObject* dynObj = GetMap()->GetDynamicObject(*i);
         if(!dynObj)
@@ -4948,7 +4970,7 @@ DynamicObject * Unit::GetDynObject(uint32 spellId, SpellEffectIndex effIndex)
 
 DynamicObject * Unit::GetDynObject(uint32 spellId)
 {
-    for (DynObjectGUIDs::iterator i = m_dynObjGUIDs.begin(); i != m_dynObjGUIDs.end();)
+    for (GuidList::iterator i = m_dynObjGUIDs.begin(); i != m_dynObjGUIDs.end();)
     {
         DynamicObject* dynObj = GetMap()->GetDynamicObject(*i);
         if(!dynObj)
@@ -4970,6 +4992,10 @@ GameObject* Unit::GetGameObject(uint32 spellId) const
         if ((*i)->GetSpellId() == spellId)
             return *i;
 
+    WildGameObjectMap::const_iterator find = m_wildGameObjs.find(spellId);
+    if (find != m_wildGameObjs.end())
+        return GetMap()->GetGameObject(find->second);       // Can be NULL
+
     return NULL;
 }
 
@@ -4979,13 +5005,31 @@ void Unit::AddGameObject(GameObject* gameObj)
     m_gameObj.push_back(gameObj);
     gameObj->SetOwnerGuid(GetObjectGuid());
 
-    if ( GetTypeId()==TYPEID_PLAYER && gameObj->GetSpellId() )
+    if (GetTypeId() == TYPEID_PLAYER && gameObj->GetSpellId())
     {
         SpellEntry const* createBySpell = sSpellStore.LookupEntry(gameObj->GetSpellId());
         // Need disable spell use for owner
-        if (createBySpell && createBySpell->Attributes & SPELL_ATTR_DISABLED_WHILE_ACTIVE)
+        if (createBySpell && createBySpell->HasAttribute(SPELL_ATTR_DISABLED_WHILE_ACTIVE))
             // note: item based cooldowns and cooldown spell mods with charges ignored (unknown existing cases)
-            ((Player*)this)->AddSpellAndCategoryCooldowns(createBySpell,0,NULL,true);
+            ((Player*)this)->AddSpellAndCategoryCooldowns(createBySpell, 0, NULL, true);
+    }
+}
+
+void Unit::AddWildGameObject(GameObject* gameObj)
+{
+    STRAWBERRY_ASSERT(gameObj && gameObj->GetOwnerGuid().IsEmpty());
+    m_wildGameObjs[gameObj->GetSpellId()] = gameObj->GetObjectGuid();
+
+    // As of 335 there are no wild-summon spells with SPELL_ATTR_DISABLED_WHILE_ACTIVE
+
+    // Remove outdated wild summoned GOs
+    for (WildGameObjectMap::iterator itr = m_wildGameObjs.begin(); itr != m_wildGameObjs.end();)
+    {
+        GameObject* pGo = GetMap()->GetGameObject(itr->second);
+        if (pGo)
+            ++itr;
+        else
+            m_wildGameObjs.erase(itr++);
     }
 }
 
@@ -5004,7 +5048,7 @@ void Unit::RemoveGameObject(GameObject* gameObj, bool del)
         {
             SpellEntry const* createBySpell = sSpellStore.LookupEntry(spellid );
             // Need activate spell use for owner
-            if (createBySpell && createBySpell->Attributes & SPELL_ATTR_DISABLED_WHILE_ACTIVE)
+            if (createBySpell && createBySpell->HasAttribute(SPELL_ATTR_DISABLED_WHILE_ACTIVE))
                 // note: item based cooldowns and cooldown spell mods with charges ignored (unknown existing cases)
                 ((Player*)this)->SendCooldownEvent(createBySpell);
         }
@@ -5012,7 +5056,7 @@ void Unit::RemoveGameObject(GameObject* gameObj, bool del)
 
     m_gameObj.remove(gameObj);
 
-    if(del)
+    if (del)
     {
         gameObj->SetRespawnTime(0);
         gameObj->Delete();
@@ -5021,16 +5065,17 @@ void Unit::RemoveGameObject(GameObject* gameObj, bool del)
 
 void Unit::RemoveGameObject(uint32 spellid, bool del)
 {
-    if(m_gameObj.empty())
+    if (m_gameObj.empty())
         return;
+
     GameObjectList::iterator i, next;
     for (i = m_gameObj.begin(); i != m_gameObj.end(); i = next)
     {
         next = i;
-        if(spellid == 0 || (*i)->GetSpellId() == spellid)
+        if (spellid == 0 || (*i)->GetSpellId() == spellid)
         {
             (*i)->SetOwnerGuid(ObjectGuid());
-            if(del)
+            if (del)
             {
                 (*i)->SetRespawnTime(0);
                 (*i)->Delete();
@@ -5046,13 +5091,16 @@ void Unit::RemoveGameObject(uint32 spellid, bool del)
 void Unit::RemoveAllGameObjects()
 {
     // remove references to unit
-    for(GameObjectList::iterator i = m_gameObj.begin(); i != m_gameObj.end();)
+    for (GameObjectList::iterator i = m_gameObj.begin(); i != m_gameObj.end();)
     {
         (*i)->SetOwnerGuid(ObjectGuid());
         (*i)->SetRespawnTime(0);
         (*i)->Delete();
         i = m_gameObj.erase(i);
     }
+
+    // wild summoned GOs - only remove references, do not remove GOs
+    m_wildGameObjs.clear();
 }
 
 void Unit::SendSpellNonMeleeDamageLog(SpellNonMeleeDamage *log)
@@ -5282,17 +5330,13 @@ void Unit::setPowerType(Powers new_powertype)
         case POWER_ENERGY:
             SetMaxPower(POWER_ENERGY,GetCreatePowers(POWER_ENERGY));
             break;
-        case POWER_HAPPINESS:
-            SetMaxPower(POWER_HAPPINESS,GetCreatePowers(POWER_HAPPINESS));
-            SetPower(POWER_HAPPINESS,GetCreatePowers(POWER_HAPPINESS));
-            break;
     }
 }
 
 FactionTemplateEntry const* Unit::getFactionTemplateEntry() const
 {
     FactionTemplateEntry const* entry = sFactionTemplateStore.LookupEntry(getFaction());
-    if(!entry)
+    if (!entry)
     {
         static ObjectGuid guid;                             // prevent repeating spam same faction problem
 
@@ -5949,7 +5993,7 @@ void Unit::RemoveGuardians()
 
 Pet* Unit::FindGuardianWithEntry(uint32 entry)
 {
-    for (GuardianPetList::const_iterator itr = m_guardianPets.begin(); itr != m_guardianPets.end(); ++itr)
+    for (GuidSet::const_iterator itr = m_guardianPets.begin(); itr != m_guardianPets.end(); ++itr)
         if (Pet* pet = GetMap()->GetPet(*itr))
             if (pet->GetEntry() == entry)
                 return pet;
@@ -5959,7 +6003,7 @@ Pet* Unit::FindGuardianWithEntry(uint32 entry)
 
 Pet* Unit::GetProtectorPet()
 {
-    for (GuardianPetList::const_iterator itr = m_guardianPets.begin(); itr != m_guardianPets.end(); ++itr)
+    for (GuidSet::const_iterator itr = m_guardianPets.begin(); itr != m_guardianPets.end(); ++itr)
         if (Pet* pet = GetMap()->GetPet(*itr))
             if (pet->getPetType() == PROTECTOR_PET)
                 return pet;
@@ -6120,7 +6164,7 @@ void Unit::EnergizeBySpell(Unit *pVictim, uint32 SpellID, uint32 Damage, Powers 
 int32 Unit::SpellBonusWithCoeffs(SpellEntry const *spellProto, int32 total, int32 benefit, int32 ap_benefit,  DamageEffectType damagetype, bool donePart, float defCoeffMod)
 {
     // Distribute Damage over multiple effects, reduce by AoE
-    float coeff;
+    float coeff = 1.0f;
 
     // Not apply this to creature casted spells
     if (GetTypeId()==TYPEID_UNIT && !((Creature*)this)->IsPet())
@@ -6173,7 +6217,7 @@ int32 Unit::SpellBonusWithCoeffs(SpellEntry const *spellProto, int32 total, int3
  */
 uint32 Unit::SpellDamageBonusDone(Unit *pVictim, SpellEntry const *spellProto, uint32 pdamage, DamageEffectType damagetype, uint32 stack)
 {
-    if(!spellProto || !pVictim || damagetype==DIRECT_DAMAGE || spellProto->AttributesEx6 & SPELL_ATTR_EX6_NO_DMG_MODS)
+    if (!spellProto || !pVictim || damagetype == DIRECT_DAMAGE || spellProto->HasAttribute(SPELL_ATTR_EX6_NO_DMG_MODS))
         return pdamage;
 
     // For totems get damage bonus from owner (statue isn't totem in fact)
@@ -6635,7 +6679,7 @@ int32 Unit::SpellBaseDamageBonusTaken(SpellSchoolMask schoolMask)
 bool Unit::IsSpellCrit(Unit *pVictim, SpellEntry const *spellProto, SpellSchoolMask schoolMask, WeaponAttackType attackType)
 {
     // not critting spell
-    if((spellProto->AttributesEx2 & SPELL_ATTR_EX2_CANT_CRIT))
+    if (spellProto->HasAttribute(SPELL_ATTR_EX2_CANT_CRIT))
         return false;
 
     float crit_chance = 0.0f;
@@ -6891,7 +6935,7 @@ uint32 Unit::SpellCriticalHealingBonus(SpellEntry const *spellProto, uint32 dama
  */
 uint32 Unit::SpellHealingBonusDone(Unit *pVictim, SpellEntry const *spellProto, int32 healamount, DamageEffectType damagetype, uint32 stack)
 {
-     // For totems get healing bonus from owner (statue isn't totem in fact)
+    // For totems get healing bonus from owner (statue isn't totem in fact)
     if( GetTypeId()==TYPEID_UNIT && ((Creature*)this)->IsTotem() && ((Totem*)this)->GetTotemType()!=TOTEM_STATUE)
         if(Unit* owner = GetOwner())
             return owner->SpellHealingBonusDone(pVictim, spellProto, healamount, damagetype, stack);
@@ -7127,13 +7171,13 @@ int32 Unit::SpellBaseHealingBonusTaken(SpellSchoolMask schoolMask)
 
 bool Unit::IsImmunedToDamage(SpellSchoolMask shoolMask)
 {
-    //If m_immuneToSchool type contain this school type, IMMUNE damage.
+    // If m_immuneToSchool type contain this school type, IMMUNE damage.
     SpellImmuneList const& schoolList = m_spellImmune[IMMUNITY_SCHOOL];
     for (SpellImmuneList::const_iterator itr = schoolList.begin(); itr != schoolList.end(); ++itr)
         if (itr->type & shoolMask)
             return true;
 
-    //If m_immuneToDamage type contain magic, IMMUNE damage.
+    // If m_immuneToDamage type contain magic, IMMUNE damage.
     SpellImmuneList const& damageList = m_spellImmune[IMMUNITY_DAMAGE];
     for (SpellImmuneList::const_iterator itr = damageList.begin(); itr != damageList.end(); ++itr)
         if (itr->type & shoolMask)
@@ -7155,8 +7199,8 @@ bool Unit::IsImmuneToSpell(SpellEntry const* spellInfo)
         if (itr->type == spellInfo->GetDispel())
             return true;
 
-    if (!(spellInfo->AttributesEx & SPELL_ATTR_EX_UNAFFECTED_BY_SCHOOL_IMMUNE) &&         // unaffected by school immunity
-        !(spellInfo->AttributesEx & SPELL_ATTR_EX_DISPEL_AURAS_ON_IMMUNITY))              // can remove immune (by dispell or immune it)
+    if (!spellInfo->HasAttribute(SPELL_ATTR_EX_UNAFFECTED_BY_SCHOOL_IMMUNE) &&         // unaffected by school immunity
+        !spellInfo->HasAttribute(SPELL_ATTR_EX_DISPEL_AURAS_ON_IMMUNITY))              // can remove immune (by dispell or immune it)
     {
         SpellImmuneList const& schoolList = m_spellImmune[IMMUNITY_SCHOOL];
         for(SpellImmuneList::const_iterator itr = schoolList.begin(); itr != schoolList.end(); ++itr)
@@ -7237,7 +7281,7 @@ bool Unit::IsImmuneToSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex i
  */
 uint32 Unit::MeleeDamageBonusDone(Unit *pVictim, uint32 pdamage,WeaponAttackType attType, SpellEntry const *spellProto, DamageEffectType damagetype, uint32 stack)
 {
-    if (!pVictim || pdamage == 0 || (spellProto && spellProto->AttributesEx6 & SPELL_ATTR_EX6_NO_DMG_MODS))
+    if (!pVictim || pdamage == 0 || (spellProto && spellProto->HasAttribute(SPELL_ATTR_EX6_NO_DMG_MODS)))
         return pdamage;
 
     // differentiate for weapon damage based spells
@@ -7624,7 +7668,7 @@ void Unit::ApplySpellDispelImmunity(const SpellEntry * spellProto, DispelType ty
 {
     ApplySpellImmune(spellProto->Id,IMMUNITY_DISPEL, type, apply);
 
-    if (apply && spellProto->AttributesEx & SPELL_ATTR_EX_DISPEL_AURAS_ON_IMMUNITY)
+    if (apply && spellProto->HasAttribute(SPELL_ATTR_EX_DISPEL_AURAS_ON_IMMUNITY))
         RemoveAurasWithDispelType(type);
 }
 
@@ -8358,63 +8402,272 @@ void Unit::SetSpeedRate(UnitMoveType mtype, float rate, bool forced)
         m_speed_rate[mtype] = rate;
         propagateSpeedChange();
 
-        const uint16 SetSpeed2Opc_table[MAX_MOVE_TYPE][2]=
-        {
-            {MSG_MOVE_SET_WALK_SPEED,       SMSG_FORCE_WALK_SPEED_CHANGE},
-            {MSG_MOVE_SET_RUN_SPEED,        SMSG_FORCE_RUN_SPEED_CHANGE},
-            {MSG_MOVE_SET_RUN_BACK_SPEED,   SMSG_FORCE_RUN_BACK_SPEED_CHANGE},
-            {MSG_MOVE_SET_SWIM_SPEED,       SMSG_FORCE_SWIM_SPEED_CHANGE},
-            {MSG_MOVE_SET_SWIM_BACK_SPEED,  SMSG_FORCE_SWIM_BACK_SPEED_CHANGE},
-            {MSG_MOVE_SET_TURN_RATE,        SMSG_FORCE_TURN_RATE_CHANGE},
-            {MSG_MOVE_SET_FLIGHT_SPEED,     SMSG_FORCE_FLIGHT_SPEED_CHANGE},
-            {MSG_MOVE_SET_FLIGHT_BACK_SPEED,SMSG_FORCE_FLIGHT_BACK_SPEED_CHANGE},
-            {MSG_MOVE_SET_PITCH_RATE,       SMSG_FORCE_PITCH_RATE_CHANGE},
-        };
+        WorldPacket data;
+        ObjectGuid guid = GetObjectGuid();
 
         if (forced)
         {
             if (GetTypeId() == TYPEID_PLAYER)
             {
                 // register forced speed changes for WorldSession::HandleForceSpeedChangeAck
-                // and do it only for real sent packets and use run for run/mounted as client expected
+                // and do it only for real sent packets and use run for run/mounted afs client expected
                 ++((Player*)this)->m_forced_speed_changes[mtype];
             }
 
-            WorldPacket data(SetSpeed2Opc_table[mtype][1], 18);
-            data << GetPackGUID();
-            data << (uint32)0;                                  // moveEvent, NUM_PMOVE_EVTS = 0x39
-            if (mtype == MOVE_RUN)
-                data << uint8(0);                               // new 2.1.0
-            data << float(GetSpeed(mtype));
+            switch (mtype)
+            {
+                case MOVE_WALK:
+                {
+                    uint8 guidMask[] = { 0, 4, 5, 2, 3, 1, 6, 7 };
+                    uint8 guidBytes[] = { 6, 1, 5, 2, 4, 0, 7, 3 };
+
+                    data.Initialize(SMSG_MOVE_SET_WALK_SPEED, 1 + 8 + 4 + 4);
+                    data.WriteGuidMask(guid, guidMask, 8, 0);
+                    data.WriteGuidBytes(guid, guidBytes, 3, 0);
+                    data << float(GetSpeed(mtype));
+                    data.WriteGuidBytes(guid, guidBytes, 1, 3);
+                    data << uint32(0);
+                    data.WriteGuidBytes(guid, guidBytes, 4, 4);
+                    break;
+                }
+                case MOVE_RUN:
+                {
+                    uint8 guidMask[] = { 6, 1, 5, 2, 7, 0, 3, 4 };
+                    uint8 guidBytes[] = { 5, 3, 1, 4, 6, 0, 7, 2 };
+
+                    data.Initialize(SMSG_MOVE_SET_RUN_SPEED, 1 + 8 + 4 + 4 );
+                    data.WriteGuidMask(guid, guidMask, 8, 0);
+                    data.WriteGuidBytes(guid, guidBytes, 4, 0);
+                    data << uint32(0);
+                    data << float(GetSpeed(mtype));
+                    data.WriteGuidBytes(guid, guidBytes, 4, 4);
+                    break;
+                }
+                case MOVE_RUN_BACK:
+                {
+                    uint8 guidMask[] = { 0, 6, 2, 1, 3, 5, 4, 7 };
+                    uint8 guidBytes[] = { 5, 0, 4, 7, 3, 1, 2, 6 };
+
+                    data.Initialize(SMSG_MOVE_SET_RUN_BACK_SPEED, 1 + 8 + 4 + 4 );
+                    data.WriteGuidMask(guid, guidMask, 8, 0);
+                    data.WriteGuidBytes(guid, guidBytes, 1, 0);
+                    data << uint32(0);
+                    data << float(GetSpeed(mtype));
+                    data.WriteGuidBytes(guid, guidBytes, 7, 1);
+                    break;
+                }
+                case MOVE_SWIM:
+                {
+                    uint8 guidMask[] = { 5, 4, 7, 3, 2, 0, 1, 6 };
+                    uint8 guidBytes[] = { 0, 6, 3, 5, 2, 1, 7, 4 };
+
+                    data.Initialize(SMSG_MOVE_SET_SWIM_SPEED, 1 + 8 + 4 + 4 );
+                    data.WriteGuidMask(guid, guidMask, 8, 0);
+                    data.WriteGuidBytes(guid, guidBytes, 1, 0);
+                    data << uint32(0);
+                    data.WriteGuidBytes(guid, guidBytes, 4, 1);
+                    data << float(GetSpeed(mtype));
+                    data.WriteGuidBytes(guid, guidBytes, 3, 5);
+                    break;
+                }
+                case MOVE_SWIM_BACK:
+                {
+                    uint8 guidMask[] = { 4, 2, 3, 6, 5, 1, 0, 7 };
+                    uint8 guidBytes[] = { 0, 3, 4, 6, 5, 1, 7, 2 };
+
+                    data.Initialize(SMSG_MOVE_SET_SWIM_BACK_SPEED, 1 + 8 + 4 + 4 );
+                    data.WriteGuidMask(guid, guidMask, 8, 0);
+                    data << uint32(0);
+                    data.WriteGuidBytes(guid, guidBytes, 6, 0);
+                    data << float(GetSpeed(mtype));
+                    data.WriteGuidBytes(guid, guidBytes, 2, 6);
+                    break;
+                }
+                case MOVE_TURN_RATE:
+                {
+                    uint8 guidMask[] = { 7, 2, 1, 0, 4, 5, 6, 3 };
+                    uint8 guidBytes[] = { 5, 7, 2, 3, 1, 0, 6, 4 };
+
+                    data.Initialize(SMSG_MOVE_SET_TURN_RATE, 1 + 8 + 4 + 4 );
+                    data.WriteGuidMask(guid, guidMask, 8, 0);
+                    data.WriteGuidBytes(guid, guidBytes, 3, 0);
+                    data << float(GetSpeed(mtype));
+                    data.WriteGuidBytes(guid, guidBytes, 3, 3);
+                    data << uint32(0);
+                    data.WriteGuidBytes(guid, guidBytes, 2, 6);
+                    break;
+                }
+                case MOVE_FLIGHT:
+                {
+                    uint8 guidMask[] = { 0, 5, 1, 6, 3, 2, 7, 4 };
+                    uint8 guidBytes[] = { 0, 1, 7, 5, 2, 6, 3, 4 };
+
+                    data.Initialize(SMSG_MOVE_SET_FLIGHT_SPEED, 1 + 8 + 4 + 4 );
+                    data.WriteGuidMask(guid, guidMask, 8, 0);
+                    data.WriteGuidBytes(guid, guidBytes, 4, 0);
+                    data << float(GetSpeed(mtype));
+                    data << uint32(0);
+                    data.WriteGuidBytes(guid, guidBytes, 4, 4);
+                    break;
+                }
+                case MOVE_FLIGHT_BACK:
+                {
+                    uint8 guidMask[] = { 1, 2, 6, 4, 7, 3, 0, 5 };
+                    uint8 guidBytes[] = { 3, 6, 1, 2, 4, 0, 5, 7 };
+
+                    data.Initialize(SMSG_MOVE_SET_FLIGHT_BACK_SPEED, 1 + 8 + 4 + 4 );
+                    data.WriteGuidMask(guid, guidMask, 8, 0);
+
+                    data.WriteGuidBytes(guid, guidBytes, 1, 0);
+                    data << uint32(0);
+                    data.WriteGuidBytes(guid, guidBytes, 1, 1);
+                    data << float(GetSpeed(mtype));
+                    data.WriteGuidBytes(guid, guidBytes, 6, 2);
+                    break;
+                }
+                case MOVE_PITCH_RATE:
+                {
+                    uint8 guidMask[] = { 1, 2, 6, 7, 0, 3, 5, 4 };
+                    uint8 guidBytes[] = { 6, 4, 0, 1, 2, 7, 3, 5 };
+
+                    data.Initialize(SMSG_MOVE_SET_PITCH_RATE, 1 + 8 + 4 + 4 );
+                    data.WriteGuidMask(guid, guidMask, 8, 0);
+
+                    data << float(GetSpeed(mtype));
+                    data.WriteGuidBytes(guid, guidBytes, 3, 0);
+                    data << uint32(0);
+                    data.WriteGuidBytes(guid, guidBytes, 5, 3);
+                    break;
+                }
+                default:
+                    sLog.outError("Unit::SetSpeed: Unsupported move type (%d), data not sent to client.", mtype);
+                    return;
+            }
+
             SendMessageToSet(&data, true);
         }
         else
         {
             m_movementInfo.UpdateTime(WorldTimer::getMSTime());
 
-            WorldPacket data(SetSpeed2Opc_table[mtype][0], 64);
-            data << GetPackGUID();
-            data << uint32(0);                                  // movement flags
-            data << uint16(0);                                  // unk flags
-            data << float(m_movementInfo.pos.x);
-            data << float(m_movementInfo.pos.y);
-            data << float(m_movementInfo.pos.z);
-            data << float(m_movementInfo.pos.o);
-            data << uint32(m_movementInfo.fallTime);
-            data << float(GetSpeed(mtype));
+            switch (mtype)
+            {
+                case MOVE_WALK:
+                {
+                    uint8 guidMask[] = { 0, 6, 7, 3, 5, 1, 2, 4 };
+                    uint8 guidBytes[] = { 0, 4, 7, 1, 5, 3, 6, 2 };
+
+                    data.Initialize(SMSG_SPLINE_MOVE_SET_WALK_SPEED, 1 + 8 + 4);
+                    data.WriteGuidMask(guid, guidMask, 8, 0);
+                    data.WriteGuidBytes(guid, guidBytes, 6, 0);
+                    data << float(GetSpeed(mtype));
+                    data.WriteGuidBytes(guid, guidBytes, 2, 6);
+                    break;
+                }
+                case MOVE_RUN:
+                {
+                    uint8 guidMask[] = { 4, 0, 5, 7, 6, 3, 1, 2 };
+                    uint8 guidBytes[] = { 0, 7, 6, 5, 3, 4, 2, 1 };
+
+                    data.Initialize(SMSG_SPLINE_MOVE_SET_RUN_SPEED, 1 + 8 + 4);
+                    data.WriteGuidMask(guid, guidMask, 8, 0);
+                    data.WriteGuidBytes(guid, guidBytes, 6, 0);
+                    data << float(GetSpeed(mtype));
+                    data.WriteGuidBytes(guid, guidBytes, 2, 6);
+                    break;
+                }
+                case MOVE_RUN_BACK:
+                {
+                    uint8 guidMask[] = { 1, 2, 6, 0, 3, 7, 5, 4 };
+                    uint8 guidBytes[] = { 1, 2, 4, 0, 3, 6, 5, 7 };
+
+                    data.Initialize(SMSG_SPLINE_MOVE_SET_RUN_BACK_SPEED, 1 + 8 + 4);
+                    data.WriteGuidMask(guid, guidMask, 8, 0);
+                    data.WriteGuidBytes(guid, guidBytes, 1, 0);
+                    data << float(GetSpeed(mtype));
+                    data.WriteGuidBytes(guid, guidBytes, 7, 1);
+                    break;
+                }
+                case MOVE_SWIM:
+                {
+                    uint8 guidMask[] = { 4, 2, 5, 0, 7, 6, 3, 1 };
+                    uint8 guidBytes[] = { 5, 6, 1, 0, 2, 4, 7, 3 };
+
+                    data.Initialize(SMSG_SPLINE_MOVE_SET_SWIM_SPEED, 1 + 8 + 4);
+                    data.WriteGuidMask(guid, guidMask, 8, 0);
+                    data.WriteGuidBytes(guid, guidBytes, 6, 0);
+                    data << float(GetSpeed(mtype));
+                    data.WriteGuidBytes(guid, guidBytes, 2, 6);
+                    break;
+                }
+                case MOVE_SWIM_BACK:
+                {
+                    uint8 guidMask[] = { 0, 1, 3, 6, 4, 5, 7, 2 };
+                    uint8 guidBytes[] = { 5, 3, 1, 0, 7, 6, 4, 2 };
+
+                    data.Initialize(SMSG_SPLINE_MOVE_SET_SWIM_BACK_SPEED, 1 + 8 + 4);
+                    data.WriteGuidMask(guid, guidMask, 8, 0);
+                    data.WriteGuidBytes(guid, guidBytes, 6, 0);
+                    data << float(GetSpeed(mtype));
+                    data.WriteGuidBytes(guid, guidBytes, 2, 6);
+                    break;
+                }
+                case MOVE_TURN_RATE:
+                {
+                    uint8 guidMask[] = { 2, 4, 6, 1, 3, 5, 7, 0 };
+                    uint8 guidBytes[] = { 1, 5, 3, 2, 7, 4, 6, 0 };
+
+                    data.Initialize(SMSG_SPLINE_MOVE_SET_TURN_RATE, 1 + 8 + 4);
+                    data.WriteGuidMask(guid, guidMask, 8, 0);
+                    data << float(GetSpeed(mtype));
+                    data.WriteGuidBytes(guid, guidBytes, 8, 0);
+                    break;
+                }
+                case MOVE_FLIGHT:
+                {
+                    uint8 guidMask[] = { 7, 4, 0, 1, 3, 6, 5, 2 };
+                    uint8 guidBytes[] = { 0, 5, 4, 7, 3, 2, 1, 6 };
+
+                    data.Initialize(SMSG_SPLINE_MOVE_SET_FLIGHT_SPEED, 1 + 8 + 4);
+                    data.WriteGuidMask(guid, guidMask, 8, 0);
+                    data.WriteGuidBytes(guid, guidBytes, 8, 0);
+                    data << float(GetSpeed(mtype));
+                    break;
+                }
+                case MOVE_FLIGHT_BACK:
+                {
+                    uint8 guidMask[] = { 2, 1, 6, 5, 0, 3, 4, 7 };
+                    uint8 guidBytes[] = { 5, 6, 1, 0, 2, 3, 7, 4 };
+
+                    data.Initialize(SMSG_SPLINE_MOVE_SET_FLIGHT_BACK_SPEED, 1 + 8 + 4);
+                    data.WriteGuidMask(guid, guidMask, 8, 0);
+                    data.WriteGuidBytes(guid, guidBytes, 1, 0);
+                    data << float(GetSpeed(mtype));
+                    data.WriteGuidBytes(guid, guidBytes, 7, 1);
+                    break;
+                }
+                case MOVE_PITCH_RATE:
+                {
+                    uint8 guidMask[] = { 3, 5, 6, 1, 0, 4, 7, 2 };
+                    uint8 guidBytes[] = { 1, 5, 7, 0, 6, 3, 2, 4 };
+
+                    data.Initialize(SMSG_SPLINE_MOVE_SET_PITCH_RATE, 1 + 8 + 4);
+                    data.WriteGuidMask(guid, guidMask, 8, 0);
+                    data.WriteGuidBytes(guid, guidBytes, 7, 0);
+                    data << float(GetSpeed(mtype));
+                    data.WriteGuidBytes(guid, guidBytes, 1, 7);
+                    break;
+                }
+                default:
+                    sLog.outError("Unit::SetSpeed: Unsupported move type (%d), data not sent to client.", mtype);
+                    return;
+            }
+
             SendMessageToSet(&data, true);
         }
     }
 
     CallForAllControlledUnits(SetSpeedRateHelper(mtype,forced), CONTROLLED_PET|CONTROLLED_GUARDIANS|CONTROLLED_CHARM|CONTROLLED_MINIPET);
-}
-
-void Unit::SetHover(bool on)
-{
-    if(on)
-        CastSpell(this, 11010, true);
-    else
-        RemoveAurasDueToSpell(11010);
 }
 
 void Unit::SetDeathState(DeathState s)
@@ -8603,7 +8856,7 @@ void Unit::TauntFadeOut(Unit *taunter)
 
 //======================================================================
 
-bool Unit::IsSecondChoiceTarget(Unit* pTarget, bool checkThreatArea)
+bool Unit::IsSecondChoiceTarget(Unit* pTarget, bool checkThreatArea) const
 {
     STRAWBERRY_ASSERT(pTarget && GetTypeId() == TYPEID_UNIT);
 
@@ -8759,6 +9012,7 @@ int32 Unit::CalculateSpellDamage(Unit const* target, SpellEntry const* spellProt
         case 0:                                             // not used
         case 1: basePoints += 1; break;                     // range 1..1
         default:
+        {
             // range can have positive (1..rand) and negative (rand..1) values, so order its for irand
             int32 randvalue = (randomPoints >= 1)
                 ? irand(1, randomPoints)
@@ -8766,6 +9020,7 @@ int32 Unit::CalculateSpellDamage(Unit const* target, SpellEntry const* spellProt
 
             basePoints += randvalue;
             break;
+        }
     }
 
     int32 value = basePoints;
@@ -9058,16 +9313,15 @@ bool Unit::HandleStatModifier(UnitMods unitMod, UnitModifierType modifierType, f
         case UNIT_MOD_RAGE:
         case UNIT_MOD_FOCUS:
         case UNIT_MOD_ENERGY:
-        case UNIT_MOD_HAPPINESS:
         case UNIT_MOD_RUNE:
-        case UNIT_MOD_RUNIC_POWER:          UpdateMaxPower(GetPowerTypeByAuraGroup(unitMod));          break;
+        case UNIT_MOD_RUNIC_POWER:         UpdateMaxPower(GetPowerTypeByAuraGroup(unitMod)); break;
 
         case UNIT_MOD_RESISTANCE_HOLY:
         case UNIT_MOD_RESISTANCE_FIRE:
         case UNIT_MOD_RESISTANCE_NATURE:
         case UNIT_MOD_RESISTANCE_FROST:
         case UNIT_MOD_RESISTANCE_SHADOW:
-        case UNIT_MOD_RESISTANCE_ARCANE:   UpdateResistances(GetSpellSchoolByAuraGroup(unitMod));      break;
+        case UNIT_MOD_RESISTANCE_ARCANE:   UpdateResistances(GetSpellSchoolByAuraGroup(unitMod)); break;
 
         case UNIT_MOD_ATTACK_POWER:        UpdateAttackPowerAndDamage();         break;
         case UNIT_MOD_ATTACK_POWER_RANGED: UpdateAttackPowerAndDamage(true);     break;
@@ -9179,13 +9433,10 @@ Powers Unit::GetPowerTypeByAuraGroup(UnitMods unitMod) const
         case UNIT_MOD_RAGE:       return POWER_RAGE;
         case UNIT_MOD_FOCUS:      return POWER_FOCUS;
         case UNIT_MOD_ENERGY:     return POWER_ENERGY;
-        case UNIT_MOD_HAPPINESS:  return POWER_HAPPINESS;
-        case UNIT_MOD_RUNE:       return POWER_RUNE;
+        case UNIT_MOD_RUNE:       return POWER_RUNES;
         case UNIT_MOD_RUNIC_POWER:return POWER_RUNIC_POWER;
         default:                  return POWER_MANA;
     }
-
-    return POWER_MANA;
 }
 
 float Unit::GetTotalAttackPowerValue(WeaponAttackType attType) const
@@ -9291,6 +9542,7 @@ void Unit::SetPower(Powers power, uint32 val)
 
     WorldPacket data(SMSG_POWER_UPDATE);
     data << GetPackGUID();
+    data << uint32(1);
     data << uint8(GetPowerIndexByClass(power, getClass()));
     data << uint32(val);
     SendMessageToSet(&data, true);
@@ -9311,11 +9563,8 @@ void Unit::SetPower(Powers power, uint32 val)
                 ((Player*)owner)->SetGroupUpdateFlag(GROUP_UPDATE_FLAG_PET_CUR_POWER);
         }
 
-        // Update the pet's character sheet with happiness damage bonus
-        if(pet->getPetType() == HUNTER_PET && power == POWER_HAPPINESS)
-        {
+        if(pet->getPetType() == HUNTER_PET)
             pet->UpdateDamagePhysical(BASE_ATTACK);
-        }
     }
 }
 
@@ -9410,8 +9659,7 @@ uint32 Unit::GetCreatePowers( Powers power ) const
                 return 100;
             return (GetTypeId() == TYPEID_PLAYER || !((Creature const*)this)->IsPet() || ((Pet const*)this)->getPetType() != HUNTER_PET ? 0 : 100);
         case POWER_ENERGY:      return 100;
-        case POWER_HAPPINESS:   return (GetTypeId() == TYPEID_PLAYER || !((Creature const*)this)->IsPet() || ((Pet const*)this)->getPetType() != HUNTER_PET ? 0 : 1050000);
-        case POWER_RUNE:        return (GetTypeId() == TYPEID_PLAYER && ((Player const*)this)->getClass() == CLASS_DEATH_KNIGHT ? 8 : 0);
+        case POWER_RUNES:       return (GetTypeId() == TYPEID_PLAYER && ((Player const*)this)->getClass() == CLASS_DEATH_KNIGHT ? 8 : 0);
         case POWER_RUNIC_POWER: return (GetTypeId() == TYPEID_PLAYER && ((Player const*)this)->getClass() == CLASS_DEATH_KNIGHT ? 1000 : 0);
         case POWER_SOUL_SHARDS: return 0;                   // TODO: fix me
         case POWER_ECLIPSE:     return 0;                   // TODO: fix me
@@ -9856,6 +10104,9 @@ void Unit::ProcDamageAndSpellFor( bool isVictim, Unit * pTarget, uint32 procFlag
             continue;
 
         SpellProcEventEntry const *spellProcEvent = itr->spellProcEvent;
+        if (!spellProcEvent)
+            continue;
+
         bool useCharges = triggeredByHolder->GetAuraCharges() > 0;
         bool procSuccess = true;
         bool anyAuraProc = false;
@@ -10260,6 +10511,7 @@ void Unit::ClearAllReactives()
         ModifyAuraState(AURA_STATE_DEFENSE, false);
     if (getClass() == CLASS_HUNTER && HasAuraState( AURA_STATE_HUNTER_PARRY))
         ModifyAuraState(AURA_STATE_HUNTER_PARRY, false);
+
     if(getClass() == CLASS_WARRIOR && GetTypeId() == TYPEID_PLAYER)
         ((Player*)this)->ClearComboPoints();
 }
@@ -10348,6 +10600,7 @@ Unit* Unit::SelectRandomFriendlyTarget(Unit* except /*= NULL*/, float radius /*=
     Strawberry::UnitListSearcher<Strawberry::AnyFriendlyUnitInObjectRangeCheck> searcher(targets, u_check);
 
     Cell::VisitAllObjects(this, searcher, radius);
+
     // remove current target
     if(except)
         targets.remove(except);
@@ -10520,7 +10773,7 @@ void Unit::RemoveAurasAtMechanicImmunity(uint32 mechMask, uint32 exceptSpellId, 
             ++iter;
         else if (non_positive && iter->second->IsPositive())
             ++iter;
-        else if (spell->Attributes & SPELL_ATTR_UNAFFECTED_BY_INVULNERABILITY)
+        else if (spell->HasAttribute(SPELL_ATTR_UNAFFECTED_BY_INVULNERABILITY))
             ++iter;
         else if (iter->second->HasMechanicMask(mechMask))
         {
@@ -10790,26 +11043,10 @@ void Unit::ExitVehicle()
 
 void MovementInfo::BuildMovementPacket(ByteBuffer *data) const
 {
-    Unit *unit = ((Unit*)this);
-
-    if (unit->GetTypeId() == TYPEID_PLAYER)
-    {
-        Player *player = ((Player*)unit);
-        if(player->GetTransport())
-            player->m_movementInfo.AddMovementFlag(MOVEFLAG_ONTRANSPORT);
-        else
-            player->m_movementInfo.RemoveMovementFlag(MOVEFLAG_ONTRANSPORT);
-    }
-
-    if (unit->GetTransport() || unit->GetVehicle())
-        unit->m_movementInfo.AddMovementFlag(MOVEFLAG_ONTRANSPORT);
-    else
-        unit->m_movementInfo.RemoveMovementFlag(MOVEFLAG_ONTRANSPORT);
-
     // Update movement info time
-    unit->m_movementInfo.UpdateTime(WorldTimer::getMSTime());
+    const_cast<MovementInfo*>(this)->UpdateTime(WorldTimer::getMSTime());
 
-    bool onTransport = GetMovementFlags() & MOVEFLAG_ONTRANSPORT;
+    bool onTransport = t_guid;
     bool hasInterpolatedMovement = moveFlags2 & MOVEFLAG2_INTERP_MOVEMENT;
     bool time3 = false;
     bool swimming = ((GetMovementFlags() & (MOVEFLAG_SWIMMING | MOVEFLAG_FLYING))
@@ -10838,7 +11075,7 @@ void MovementInfo::BuildMovementPacket(ByteBuffer *data) const
 
     data->FlushBits(); // reset bit stream
 
-    *data << t_guid.m_guid;
+    *data << guid;
     *data << time;
     *data << pos.x;
     *data << pos.y;
@@ -10847,7 +11084,7 @@ void MovementInfo::BuildMovementPacket(ByteBuffer *data) const
 
     if (onTransport)
     {
-        *data << t_guid.m_guid;
+        *data << t_guid;
         *data << t_pos.x;
         *data << t_pos.y;
         *data << t_pos.z;
@@ -10944,13 +11181,7 @@ void Unit::KnockBackFrom(Unit* target, float horizontalSpeed, float verticalSpee
         float fx = ox + dis * vcos;
         float fy = oy + dis * vsin;
         float fz = oz;
-        float fx2, fy2, fz2;                                // getObjectHitPos overwrite last args in any result case
-        if(VMAP::VMapFactory::createOrGetVMapManager()->getObjectHitPos(GetMapId(), ox,oy,oz+0.5f, fx,fy,oz+0.5f,fx2,fy2,fz2, -0.5f))
-        {
-            fx = fx2;
-            fy = fy2;
-            fz = fz2;
-        }
+        GetMap()->GetObjectHitPos(ox,oy,oz+0.5f, fx,fy,oz+0.5f,fx,fy,fz, -0.5f);
         UpdateAllowedPositionZ(fx, fy, fz);
         GetMotionMaster()->MoveJump(fx,fy,fz,horizontalSpeed,max_height);
     }
@@ -11282,6 +11513,46 @@ void Unit::UpdateSplineMovement(uint32 t_diff)
 
 void Unit::DisableSpline()
 {
-    m_movementInfo.RemoveMovementFlag(MovementFlags(MOVEFLAG_SPLINE_ENABLED|MOVEFLAG_FORWARD));
+    m_movementInfo.RemoveMovementFlag(MOVEFLAG_FORWARD);
     movespline->_Interrupt();
 }
+
+void Unit::BuildSendPlayVisualPacket(WorldPacket* data, uint32 value, bool impact)
+{
+    *data << uint32(0);         // unk, seems always 0
+    *data << uint32(value);
+    *data << uint32(impact ? 1 : 0);
+
+    uint8 guidMask[8] = { 4, 7, 5, 3, 1, 2, 0, 6 };
+    uint8 byteOrder[8] = { 0, 4, 1, 6, 7, 2, 3, 5 };
+    data->WriteGuidMask(GetObjectGuid(), guidMask, 8);
+    data->WriteGuidBytes(GetObjectGuid(), byteOrder, 8, 0);
+}
+
+void Unit::BuildForceMoveRootPacket(WorldPacket* data, bool apply, uint32 value)
+{
+    if (apply)
+    {
+        uint8 guidMask[8] = { 2, 7, 6, 0, 5, 4, 1, 3 };
+        uint8 byteOrder[8] = { 1, 0, 2, 5, 3, 4, 7, 6 };
+        data->WriteGuidMask(GetObjectGuid(), guidMask, 8);
+        data->WriteGuidBytes(GetObjectGuid(), byteOrder, 4, 0);
+        *data << uint32(value);
+        data->WriteGuidBytes(GetObjectGuid(), byteOrder, 4, 4);
+    }
+    else
+    {
+        uint8 guidMask[8] = { 0, 1, 3, 7, 5, 2, 4, 6 };
+        uint8 byteOrder[8] = { 3, 6, 1, 2, 0, 7, 4, 5 };
+        data->WriteGuidMask(GetObjectGuid(), guidMask, 8);
+        data->WriteGuidBytes(GetObjectGuid(), byteOrder, 3, 0);
+        *data << uint32(value);
+        data->WriteGuidBytes(GetObjectGuid(), byteOrder, 5, 3);
+    }
+}
+
+bool Unit::IsSplineEnabled() const
+{
+    return !movespline->Finalized();
+}
+

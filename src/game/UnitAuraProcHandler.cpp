@@ -349,7 +349,61 @@ pAuraProcHandler AuraProcHandler[TOTAL_AURAS]=
     &Unit::HandleNULLProc,                                  //313 0 spells in 3.3
     &Unit::HandleNULLProc,                                  //314 1 test spell (reduce duration of silince/magic)
     &Unit::HandleNULLProc,                                  //315 underwater walking
-    &Unit::HandleNULLProc                                   //316 makes haste affect HOT/DOT ticks
+    &Unit::HandleNULLProc,                                  //316 makes haste affect HOT/DOT ticks
+    &Unit::HandleNULLProc,                                  //317 Unknown
+    &Unit::HandleNULLProc,                                  //318 Unknown
+    &Unit::HandleNULLProc,                                  //319 Unknown
+    &Unit::HandleNULLProc,                                  //320 Unknown
+    &Unit::HandleNULLProc,                                  //321 Unknown
+    &Unit::HandleNULLProc,                                  //322 Unknown
+    &Unit::HandleNULLProc,                                  //323 Unknown
+    &Unit::HandleNULLProc,                                  //324 Unknown
+    &Unit::HandleNULLProc,                                  //325 Unknown
+    &Unit::HandleNULLProc,                                  //326 Unknown
+    &Unit::HandleNULLProc,                                  //327 Unknown
+    &Unit::HandleNULLProc,                                  //328 Unknown
+    &Unit::HandleNULLProc,                                  //328 Unknown
+    &Unit::HandleNULLProc,                                  //329 Unknown
+    &Unit::HandleNULLProc,                                  //330 Unknown
+    &Unit::HandleNULLProc,                                  //331 Unknown
+    &Unit::HandleNULLProc,                                  //332 Unknown
+    &Unit::HandleNULLProc,                                  //333 Unknown
+    &Unit::HandleNULLProc,                                  //334 Unknown
+    &Unit::HandleNULLProc,                                  //335 Unknown
+    &Unit::HandleNULLProc,                                  //336 Unknown
+    &Unit::HandleNULLProc,                                  //337 Unknown
+    &Unit::HandleNULLProc,                                  //338 Unknown
+    &Unit::HandleNULLProc,                                  //339 Unknown
+    &Unit::HandleNULLProc,                                  //340 Unknown
+    &Unit::HandleNULLProc,                                  //341 Unknown
+    &Unit::HandleNULLProc,                                  //342 Unknown
+    &Unit::HandleNULLProc,                                  //343 Unknown
+    &Unit::HandleNULLProc,                                  //344 Unknown
+    &Unit::HandleNULLProc,                                  //345 Unknown
+    &Unit::HandleNULLProc,                                  //346 Unknown
+    &Unit::HandleNULLProc,                                  //348 Unknown
+    &Unit::HandleNULLProc,                                  //349 Unknown
+    &Unit::HandleNULLProc,                                  //350 Unknown
+    &Unit::HandleNULLProc,                                  //351 Unknown
+    &Unit::HandleNULLProc,                                  //352 Unknown
+    &Unit::HandleNULLProc,                                  //353 Unknown
+    &Unit::HandleNULLProc,                                  //354 Unknown
+    &Unit::HandleNULLProc,                                  //355 Unknown
+    &Unit::HandleNULLProc,                                  //356 Unknown
+    &Unit::HandleNULLProc,                                  //357 Unknown
+    &Unit::HandleNULLProc,                                  //358 Unknown
+    &Unit::HandleNULLProc,                                  //359 Unknown
+    &Unit::HandleNULLProc,                                  //360 Unknown
+    &Unit::HandleNULLProc,                                  //361 Unknown
+    &Unit::HandleNULLProc,                                  //362 Unknown
+    &Unit::HandleNULLProc,                                  //363 Unknown
+    &Unit::HandleNULLProc,                                  //364 Unknown
+    &Unit::HandleNULLProc,                                  //365 Unknown
+    &Unit::HandleNULLProc,                                  //366 Unknown
+    &Unit::HandleNULLProc,                                  //367 Unknown
+    &Unit::HandleNULLProc,                                  //368 Unknown
+    &Unit::HandleNULLProc,                                  //369 Unknown
+    &Unit::HandleNULLProc                                   //370 Unknown
 };
 
 bool Unit::IsTriggeredAtSpellProcEvent(Unit *pVictim, SpellAuraHolder* holder, SpellEntry const* procSpell, uint32 procFlag, uint32 procExtra, WeaponAttackType attType, bool isVictim, SpellProcEventEntry const*& spellProcEvent )
@@ -2815,8 +2869,11 @@ SpellAuraProcResult Unit::HandleProcTriggerSpellAuraProc(Unit *pVictim, uint32 d
 {
     // Get triggered aura spell info
     SpellEntry const* auraSpellInfo = triggeredByAura->GetSpellProto();
-    SpellClassOptionsEntry const* auraClassOptions = auraSpellInfo->GetSpellClassOptions();
-    SpellClassOptionsEntry const* procClassOptions = procSpell->GetSpellClassOptions();
+    if (!triggeredByAura)
+        return SPELL_AURA_PROC_OK;
+
+    SpellClassOptionsEntry const* auraClassOptions = auraSpellInfo ? auraSpellInfo->GetSpellClassOptions() : 0;
+    SpellClassOptionsEntry const* procClassOptions = procSpell ? procSpell->GetSpellClassOptions() : 0;
 
     // Basepoints of trigger aura
     int32 triggerAmount = triggeredByAura->GetModifier()->m_amount;
@@ -2878,6 +2935,7 @@ SpellAuraProcResult Unit::HandleProcTriggerSpellAuraProc(Unit *pVictim, uint32 d
                         CastSpell(pVictim, 27526, true, castItem, triggeredByAura);
                     return SPELL_AURA_PROC_OK;
                 case 31255:                                 // Deadly Swiftness (Rank 1)
+                {
                     // whenever you deal damage to a target who is below 20% health.
                     if (pVictim->GetHealth() > pVictim->GetMaxHealth() / 5)
                         return SPELL_AURA_PROC_FAILED;
@@ -2885,6 +2943,7 @@ SpellAuraProcResult Unit::HandleProcTriggerSpellAuraProc(Unit *pVictim, uint32 d
                     target = this;
                     trigger_spell_id = 22588;
                     break;
+                }
                 //case 33207: break;                        // Gossip NPC Periodic - Fidget
                 case 33896:                                 // Desperate Defense (Stonescythe Whelp, Stonescythe Alpha, Stonescythe Ambusher)
                     trigger_spell_id = 33898;
@@ -3313,7 +3372,7 @@ SpellAuraProcResult Unit::HandleProcTriggerSpellAuraProc(Unit *pVictim, uint32 d
                         case 48821: originalSpellId = 48825; break;
                         default:
                             sLog.outError("Unit::HandleProcTriggerSpellAuraProc: Spell %u not handled in HShock",procSpell->Id);
-                           return SPELL_AURA_PROC_FAILED;
+                            return SPELL_AURA_PROC_FAILED;
                     }
                 }
                 SpellEntry const *originalSpell = sSpellStore.LookupEntry(originalSpellId);
@@ -3370,6 +3429,12 @@ SpellAuraProcResult Unit::HandleProcTriggerSpellAuraProc(Unit *pVictim, uint32 d
                 trigger_spell_id = 54843;
                 target = pVictim;
             }
+            // Seal of Insight effect
+            else if(auraSpellInfo->Id == 20271 && procSpell->Id == 20165)
+            {
+                int32 damageSeal = 1 + ((100/400) *(((Player*)this)->GetBaseSpellPowerBonus() / 16) * this->GetModifierValue(UNIT_MOD_ATTACK_POWER,TOTAL_VALUE));
+                CastCustomSpell(pVictim,54158,&damageSeal,NULL,NULL,true);
+            }
             break;
         }
         case SPELLFAMILY_SHAMAN:
@@ -3403,7 +3468,7 @@ SpellAuraProcResult Unit::HandleProcTriggerSpellAuraProc(Unit *pVictim, uint32 d
                         trigger_spell_id = 49279; break;
                     default:
                         sLog.outError("Unit::HandleProcTriggerSpellAuraProc: Spell %u not handled in LShield", auraSpellInfo->Id);
-                    return SPELL_AURA_PROC_FAILED;
+                        return SPELL_AURA_PROC_FAILED;
                 }
             }
             // Lightning Shield (The Ten Storms set)
@@ -3480,7 +3545,7 @@ SpellAuraProcResult Unit::HandleProcTriggerSpellAuraProc(Unit *pVictim, uint32 d
             break;
         }
         default:
-             break;
+            break;
     }
 
     // All ok. Check current trigger spell
@@ -3724,21 +3789,21 @@ SpellAuraProcResult Unit::HandleOverrideClassScriptAuraProc(Unit *pVictim, uint3
     {
         case 836:                                           // Improved Blizzard (Rank 1)
         {
-            if (!procSpell || procSpell->SpellVisual[0]!=9487)
+            if (!procSpell || procSpell->SpellVisual[0] != 9487)
                 return SPELL_AURA_PROC_FAILED;
             triggered_spell_id = 12484;
             break;
         }
         case 988:                                           // Improved Blizzard (Rank 2)
         {
-            if (!procSpell || procSpell->SpellVisual[0]!=9487)
+            if (!procSpell || procSpell->SpellVisual[0] != 9487)
                 return SPELL_AURA_PROC_FAILED;
             triggered_spell_id = 12485;
             break;
         }
         case 989:                                           // Improved Blizzard (Rank 3)
         {
-            if (!procSpell || procSpell->SpellVisual[0]!=9487)
+            if (!procSpell || procSpell->SpellVisual[0] != 9487)
                 return SPELL_AURA_PROC_FAILED;
             triggered_spell_id = 12486;
             break;
@@ -3820,62 +3885,38 @@ SpellAuraProcResult Unit::HandleOverrideClassScriptAuraProc(Unit *pVictim, uint3
     return SPELL_AURA_PROC_OK;
 }
 
-SpellAuraProcResult Unit::HandleMendingAuraProc( Unit* /*pVictim*/, uint32 /*damage*/, Aura* triggeredByAura, SpellEntry const* /*procSpell*/, uint32 /*procFlag*/, uint32 /*procEx*/, uint32 /*cooldown*/ )
+SpellAuraProcResult Unit::HandleMendingAuraProc( Unit* /*pVictim*/, uint32 /*damage*/, Aura* triggeredByAura, SpellEntry const* procSpell, uint32 /*procFlag*/, uint32 /*procEx*/, uint32 /*cooldown*/ )
 {
-    // aura can be deleted at casts
-    SpellEntry const* spellProto = triggeredByAura->GetSpellProto();
-    SpellEffectIndex effIdx = triggeredByAura->GetEffIndex();
-    int32 heal = triggeredByAura->GetModifier()->m_amount;
-    ObjectGuid caster_guid = triggeredByAura->GetCasterGuid();
+    Player *priestCaster = (Player *)triggeredByAura->GetCaster();
+    int32 heal = triggeredByAura->GetSpellProto()->CalculateSimpleValue(EFFECT_INDEX_0) + (priestCaster->GetBaseSpellPowerBonus() * 318/1000);
+    float radius = sSpellRadiusStore.LookupEntry(procSpell->rangeIndex)->Radius;
 
-    // jumps
-    int32 jumps = triggeredByAura->GetHolder()->GetAuraCharges()-1;
-
-    // next target selection
-    if (jumps > 0 && GetTypeId()==TYPEID_PLAYER && caster_guid.IsPlayer())
+    if(triggeredByAura->GetSpellProto()->Id == procSpell->Id)
     {
-        float radius;
-        SpellEffectEntry const* spellEffect = spellProto->GetSpellEffect(effIdx);
-        if (spellEffect && spellEffect->EffectRadiusIndex)
-            radius = GetSpellRadius(sSpellRadiusStore.LookupEntry(spellEffect->EffectRadiusIndex));
-        else
-            radius = GetSpellMaxRange(sSpellRangeStore.LookupEntry(spellProto->rangeIndex));
+        CastCustomSpell(this,33110,&heal,NULL,NULL,true,NULL,NULL,priestCaster->GetObjectGuid(),triggeredByAura->GetSpellProto());
 
-        if(Player* caster = ((Player*)triggeredByAura->GetCaster()))
+        Player* newVictim = ((Player *)this)->GetNextRandomRaidMember(radius);
+        uint32 jumps = triggeredByAura->GetHolder()->GetAuraCharges()-1;
+        if(jumps > 0)
         {
-            caster->ApplySpellMod(spellProto->Id, SPELLMOD_RADIUS, radius, NULL);
-
-            if(Player* target = ((Player*)this)->GetNextRandomRaidMember(radius))
+            do
             {
-                SpellAuraHolder *holder = GetSpellAuraHolder(spellProto->Id, caster->GetObjectGuid());
-                SpellAuraHolder *new_holder = CreateSpellAuraHolder(spellProto, target, caster);
-                SpellClassOptionsEntry const* classOptions = spellProto->GetSpellClassOptions();
-                // aura will applied from caster, but spell casted from current aura holder
-                SpellModifier *mod = new SpellModifier(SPELLMOD_CHARGES,SPELLMOD_FLAT,jumps-5,spellProto->Id,classOptions ? classOptions->SpellFamilyFlags : ClassFamilyMask());
-
-                for (int32 i = 0; i < MAX_EFFECT_INDEX; ++i)
+                if(newVictim != ((Player*)this))
                 {
-                    Aura *aur = holder->GetAuraByEffectIndex(SpellEffectIndex(i));
-                    if (!aur)
-                        continue;
-
-                    int32 basePoints = aur->GetBasePoints();
-                    Aura * new_aur = CreateAura(spellProto, aur->GetEffIndex(), &basePoints, new_holder, target, caster);
-                    new_holder->AddAura(new_aur, new_aur->GetEffIndex());
+                    priestCaster->CastCustomSpell(newVictim,triggeredByAura->GetSpellProto()->Id,NULL,NULL,NULL,false,NULL,NULL,priestCaster->GetObjectGuid());
+                    return SPELL_AURA_PROC_OK;
                 }
-                new_holder->SetAuraCharges(jumps, false);
-
-                // lock aura holder (currently SPELL_AURA_PRAYER_OF_MENDING is single target spell, so will attempt removing from old target
-                // when applied to new one)
-                triggeredByAura->SetInUse(true);
-                target->AddSpellAuraHolder(new_holder);
-                triggeredByAura->SetInUse(false);
-            }
+                else
+                {
+                    Player* newVictim = ((Player *)this)->GetNextRandomRaidMember(radius);
+                }
+            }while(newVictim == ((Player*)this));
         }
     }
-
-    // heal
-    CastCustomSpell(this,33110,&heal,NULL,NULL,true,NULL,NULL,caster_guid, spellProto);
+    else
+    {
+        priestCaster->CastSpell(this,procSpell->Id,false);
+    }
     return SPELL_AURA_PROC_OK;
 }
 

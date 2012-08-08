@@ -23,8 +23,6 @@
 #include "Log.h"
 #include "Utilities/ByteConverter.h"
 
-
-
 class ByteBufferException
 {
     public:
@@ -136,7 +134,7 @@ class ByteBuffer
             _bitpos = 8;
         }
 
-        bool WriteBit(uint32 bit)
+        template <typename T> bool WriteBit(T bit)
         {
             --_bitpos;
             if (bit)
@@ -175,7 +173,7 @@ class ByteBuffer
             uint32 value = 0;
             for (int32 i = bits-1; i >= 0; --i)
                 if (ReadBit())
-                    value |= (1 << (_bitpos));
+                    value |= (1 << i);
 
             return value;
         }
@@ -523,6 +521,16 @@ class ByteBuffer
             std::string s = 0;
             (*this) >> s;
             return s;
+        }
+
+        std::string ReadString(uint32 count)
+        {
+            std::string out;
+            uint32 start = rpos();
+            while (rpos() < size() && rpos() < start + count)       // prevent crash at wrong string format in packet
+                out += read<char>();
+
+            return out;
         }
 
         bool ReadBoolean()

@@ -20,7 +20,7 @@
 #include "packet_builder.h"
 #include "MoveSpline.h"
 #include "../WorldPacket.h"
-#include "../Creature.h"
+#include "Creature.h"
 
 namespace Movement
 {
@@ -60,21 +60,21 @@ namespace Movement
 
         switch(splineflags & MoveSplineFlag::Mask_Final_Facing)
         {
-        default:
-            data << uint8(MonsterMoveNormal);
-            break;
-        case MoveSplineFlag::Final_Target:
-            data << uint8(MonsterMoveFacingTarget);
-            data << move_spline.facing.target;
-            break;
-        case MoveSplineFlag::Final_Angle:
-            data << uint8(MonsterMoveFacingAngle);
-            data << move_spline.facing.angle;
-            break;
-        case MoveSplineFlag::Final_Point:
-            data << uint8(MonsterMoveFacingSpot);
-            data << move_spline.facing.f.x << move_spline.facing.f.y << move_spline.facing.f.z;
-            break;
+            case MoveSplineFlag::FinalTarget:
+                data << uint8(MonsterMoveFacingTarget);
+                data << move_spline.facing.target;
+                break;
+            case MoveSplineFlag::FinalOrientation:
+                data << uint8(MonsterMoveFacingAngle);
+                data << move_spline.facing.angle;
+                break;
+            case MoveSplineFlag::FinalPoint:
+                data << uint8(MonsterMoveFacingSpot);
+                data << move_spline.facing.f.x << move_spline.facing.f.y << move_spline.facing.f.z;
+                break;
+            default:
+                data << uint8(MonsterMoveNormal);
+                break;
         }
 
         // add fake Enter_Cycle flag - needed for client-side cyclic movement (client will erase first spline vertex after first cycle done)
@@ -137,7 +137,7 @@ namespace Movement
 
         const Spline<int32>& spline = move_spline.spline;
         MoveSplineFlag splineflags = move_spline.splineflags;
-        if (splineflags & MoveSplineFlag::Mask_CatmullRom)
+        if (splineflags & MoveSplineFlag::UncompressedPath)
         {
             if (splineflags.cyclic)
                 WriteCatmullRomCyclicPath(spline, data);
@@ -152,53 +152,85 @@ namespace Movement
     {
         MoveSplineFlag splineFlags = move_spline.splineflags;
         uint32 nodes = move_spline.getPath().size();
+        bool hasSplineStartTime = move_spline.splineflags & (MoveSplineFlag::Trajectory | MoveSplineFlag::Animation);
+        bool hasSplineVerticalAcceleration = (move_spline.splineflags & MoveSplineFlag::Trajectory) && move_spline.effect_start_time < move_spline.Duration();
 
-        data.WriteBits(SPLINEMODE_LINEAR, 2);
-        data.WriteBit(false);
+        data.WriteBits(uint8(move_spline.spline.mode()), 2);
+        data.WriteBit(hasSplineStartTime);
         data.WriteBits(nodes, 22);
-        data.WriteBits(SPLINETYPE_NORMAL, 2);
 
-        if (splineFlags.walkmode)
+        switch (move_spline.splineflags & MoveSplineFlag::Mask_Final_Facing)
         {
-            uint8 guidMask[] = { 4, 3, 7, 2, 6, 1, 0, 5 };
-            data.WriteGuidMask(move_spline.facing.target, guidMask, 8);
+            case MoveSplineFlag::FinalTarget:
+            {
+                data.WriteBits(2, 2);
+
+                uint8 guidMask[] = { 4, 3, 7, 2, 6, 1, 0, 5 };
+                data.WriteGuidMask(move_spline.facing.target, guidMask, 8);
+                break;
+            }
+            case MoveSplineFlag::FinalOrientation:
+                data.WriteBits(0, 2);
+                break;
+            case MoveSplineFlag::FinalPoint:
+                data.WriteBits(1, 2);
+                break;
+            default:
+                data.WriteBits(3, 2);
+                break;
         }
+
+        data.WriteBit(hasSplineVerticalAcceleration);
+        data.WriteBits(move_spline.splineflags.raw(), 25);
     }
 
     void PacketBuilder::WriteData(const MoveSpline& move_spline, ByteBuffer& data)
     {
         MoveSplineFlag splineFlags = move_spline.splineflags;
         uint32 nodes = move_spline.getPath().size();
+        bool hasSplineStartTime = move_spline.splineflags & (MoveSplineFlag::Trajectory | MoveSplineFlag::Animation);
+        bool hasSplineVerticalAcceleration = (move_spline.splineflags & MoveSplineFlag::Trajectory) && move_spline.effect_start_time < move_spline.Duration();
+
+        if (hasSplineVerticalAcceleration)
+            data << move_spline.vertical_acceleration;   // added in 3.1
 
         data << move_spline.timePassed();
 
-        if (splineFlags.walkmode)
+        if (move_spline.splineflags & MoveSplineFlag::FinalOrientation)
+            data << move_spline.facing.angle;
+        else if (move_spline.splineflags & MoveSplineFlag::FinalTarget)
         {
             uint8 guidBytes[] = { 5, 3, 7, 1, 6, 4, 2, 0 };
             data.WriteGuidBytes(move_spline.facing.target, guidBytes, 8, 0);
         }
 
-        for (uint32 i = 0; i < nodes; i++)
+        for (uint32 i = 0; i < nodes; ++i)
         {
-            data << move_spline.getPath()[0].z;
-            data << move_spline.getPath()[0].x;
-            data << move_spline.getPath()[0].y;
+            data << move_spline.getPath()[i].z;
+            data << move_spline.getPath()[i].x;
+            data << move_spline.getPath()[i].y;
         }
 
-        if(splineFlags.flying)
-            data << move_spline.facing.f.z << move_spline.facing.f.y << move_spline.facing.f.x;
+        if (move_spline.splineflags & MoveSplineFlag::FinalPoint)
+            data << move_spline.facing.f.x << move_spline.facing.f.z << move_spline.facing.f.y;
 
-        data << float(0.f);
-        data << uint32(0);
-
-        if (splineFlags.orientationFixed)
-            data << move_spline.facing.angle;
+        data << float(1.f);
+        data << move_spline.Duration();
+        if (hasSplineStartTime)
+            data << move_spline.effect_start_time;       // added in 3.1
 
         data << float(1.f);
 
-        data << move_spline.FinalDestination().z;
-        data << move_spline.FinalDestination().x;
-        data << move_spline.FinalDestination().y;
+        if (!move_spline.isCyclic())
+        {
+            Vector3 dest = move_spline.FinalDestination();
+            data << float(dest.z);
+            data << float(dest.x);
+            data << float(dest.y);
+        }
+        else
+            data << Vector3::zero();
+
         data << move_spline.GetId();
     }
 }

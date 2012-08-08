@@ -334,7 +334,6 @@ enum UnitMods
     UNIT_MOD_RAGE,
     UNIT_MOD_FOCUS,
     UNIT_MOD_ENERGY,
-    UNIT_MOD_HAPPINESS,
     UNIT_MOD_RUNE,
     UNIT_MOD_RUNIC_POWER,
     UNIT_MOD_ARMOR,                                         // UNIT_MOD_ARMOR..UNIT_MOD_RESISTANCE_ARCANE must be in existing order, it's accessed by index values of SpellSchools enum.
@@ -637,8 +636,7 @@ enum MovementFlags
     MOVEFLAG_WATERWALKING       = 0x04000000,               // prevent unit from falling through water
     MOVEFLAG_SAFE_FALL          = 0x08000000,               // active rogue safe fall spell (passive)
     MOVEFLAG_HOVER              = 0x10000000,
-    MOVEFLAG_SPLINE_ENABLED     = 0x20000000,               // used for flight paths
-    MOVEFLAG_ONTRANSPORT        = 0x40000000
+    MOVEFLAG_LOCAL_DIRTY        = 0x20000000,
 };
 
 // flags that use in movement check for example at spell casting
@@ -655,24 +653,24 @@ MovementFlags const movementOrTurningFlagsMask = MovementFlags(
 
 enum MovementFlags2
 {
-    MOVEFLAG2_NONE              = 0x0000,
-    MOVEFLAG2_NO_STRAFE         = 0x0001,
-    MOVEFLAG2_NO_JUMPING        = 0x0002,
-    MOVEFLAG2_UNK3              = 0x0004,
-    MOVEFLAG2_FULLSPEEDTURNING  = 0x0008,
-    MOVEFLAG2_FULLSPEEDPITCHING = 0x0010,
-    MOVEFLAG2_ALLOW_PITCHING    = 0x0020,
-    MOVEFLAG2_UNK4              = 0x0040,
-    MOVEFLAG2_UNK5              = 0x0080,
-    MOVEFLAG2_UNK6              = 0x0100,                   // transport related
-    MOVEFLAG2_UNK7              = 0x0200,
-    MOVEFLAG2_INTERP_MOVEMENT   = 0x0400,
-    MOVEFLAG2_INTERP_TURNING    = 0x0800,
-    MOVEFLAG2_INTERP_PITCHING   = 0x1000,
-    MOVEFLAG2_UNK8              = 0x2000,
-    MOVEFLAG2_UNK9              = 0x4000,
-    MOVEFLAG2_UNK10             = 0x8000,
-    MOVEFLAG2_INTERP_MASK       = MOVEFLAG2_INTERP_MOVEMENT | MOVEFLAG2_INTERP_TURNING | MOVEFLAG2_INTERP_PITCHING
+    MOVEFLAG2_NONE                        = 0x0000,
+    MOVEFLAG2_PREVENT_STRAFE              = 0x0001,
+    MOVEFLAG2_PREVENT_JUMPING             = 0x0002,
+    MOVEFLAG2_DISABLE_COLLISION           = 0x0004,
+    MOVEFLAG2_FULLSPEEDTURNING            = 0x0008,
+    MOVEFLAG2_FULLSPEEDPITCHING           = 0x0010,
+    MOVEFLAG2_ALLOW_PITCHING              = 0x0020,
+    MOVEFLAG2_IS_VEHICLE_EXIT_VOLUNTARY   = 0x0040,
+    MOVEFLAG2_IS_JUMP_SPLINE_IN_AIR       = 0x0080,
+    MOVEFLAG2_IS_ANIM_TIER_IN_TRANS       = 0x0100,                   // transport related
+    MOVEFLAG2_PREVENT_CHANGE_PITCH        = 0x0200,
+    MOVEFLAG2_INTERP_MOVEMENT             = 0x0400,
+    MOVEFLAG2_INTERP_TURNING              = 0x0800,
+    MOVEFLAG2_INTERP_PITCHING             = 0x1000,
+    MOVEFLAG2_VEHICLE_PASSENGER_IS_TRANS  = 0x2000,
+    MOVEFLAG2_CAN_TRANS_SWIM_AND_FLY      = 0x4000,
+    MOVEFLAG2_UNK10                       = 0x8000,
+    MOVEFLAG2_INTERP_MASK                 = MOVEFLAG2_INTERP_MOVEMENT | MOVEFLAG2_INTERP_TURNING | MOVEFLAG2_INTERP_PITCHING
 };
 
 class MovementInfo
@@ -830,7 +828,7 @@ struct CalcDamageInfo
     uint32 blocked_amount;
     uint32 HitInfo;
     uint32 TargetState;
-// Helper
+    // Helper
     WeaponAttackType attackType; //
     uint32 procAttacker;
     uint32 procVictim;
@@ -1078,8 +1076,6 @@ enum IgnoreUnitState
     IGNORE_UNIT_TARGET_NON_FROZEN = 126,                    // ignore absent of frozen state
 };
 
-typedef std::set<ObjectGuid> GuardianPetList;
-
 // delay time next attack to prevent client attack animation problems
 #define ATTACK_DISPLAY_DELAY 200
 #define MAX_PLAYER_STEALTH_DETECT_RANGE 45.0f               // max distance for detection targets by player
@@ -1105,7 +1101,6 @@ class Unit : public WorldObject
         typedef std::set<uint32> ComboPointHolderSet;
         typedef std::map<uint8, uint32> VisibleAuraMap;
         typedef std::map<SpellEntry const*, ObjectGuid> SingleCastSpellTargetMap;
-
 
         virtual ~Unit ( );
 
@@ -1199,8 +1194,8 @@ class Unit : public WorldObject
         uint32 getLevel() const { return GetUInt32Value(UNIT_FIELD_LEVEL); }
         virtual uint32 GetLevelForTarget(Unit const* /*target*/) const { return getLevel(); }
         void SetLevel(uint32 lvl);
-        uint8 getRace() const { return GetByteValue(UNIT_FIELD_BYTES_0, 0); }
-        uint32 getRaceMask() const { return 1 << (getRace()-1); }
+        virtual uint8 getRace() const { return GetByteValue(UNIT_FIELD_BYTES_0, 0); }
+        uint32 getRaceMask() const { return getRace() ? 1 << (getRace()-1) : 0; }
         uint8 getClass() const { return GetByteValue(UNIT_FIELD_BYTES_0, 1); }
         uint32 getClassMask() const { return 1 << (getClass()-1); }
         uint8 getGender() const { return GetByteValue(UNIT_FIELD_BYTES_0, 2); }
@@ -1461,7 +1456,7 @@ class Unit : public WorldObject
         bool IsIgnoreUnitState(SpellEntry const *spell, IgnoreUnitState ignoreState);
 
         bool isTargetableForAttack(bool inversAlive = false) const;
-        bool isPassiveToHostile() { return HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PASSIVE); }
+        bool isPassiveToHostile() const { return HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PASSIVE); }
 
         virtual bool IsInWater() const;
         virtual bool IsUnderWater() const;
@@ -1749,7 +1744,7 @@ class Unit : public WorldObject
         void AddThreat(Unit* pVictim, float threat = 0.0f, bool crit = false, SpellSchoolMask schoolMask = SPELL_SCHOOL_MASK_NONE, SpellEntry const *threatSpell = NULL);
         float ApplyTotalThreatModifier(float threat, SpellSchoolMask schoolMask = SPELL_SCHOOL_MASK_NORMAL);
         void DeleteThreatList();
-        bool IsSecondChoiceTarget(Unit* pTarget, bool checkThreatArea);
+        bool IsSecondChoiceTarget(Unit* pTarget, bool checkThreatArea) const;
         bool SelectHostileTarget();
         void TauntApply(Unit* pVictim);
         void TauntFadeOut(Unit *taunter);
@@ -1827,6 +1822,7 @@ class Unit : public WorldObject
 
         GameObject* GetGameObject(uint32 spellId) const;
         void AddGameObject(GameObject* gameObj);
+        void AddWildGameObject(GameObject* gameObj);
         void RemoveGameObject(GameObject* gameObj, bool del);
         void RemoveGameObject(uint32 spellid, bool del);
         void RemoveAllGameObjects();
@@ -1920,9 +1916,6 @@ class Unit : public WorldObject
         float GetSpeedRate( UnitMoveType mtype ) const { return m_speed_rate[mtype]; }
         void SetSpeedRate(UnitMoveType mtype, float rate, bool forced = false);
 
-        void SetHover(bool on);
-        bool isHover() const { return HasAuraType(SPELL_AURA_HOVER); }
-
         void KnockBackFrom(Unit* target, float horizontalSpeed, float verticalSpeed);
 
         void _RemoveAllAuraMods();
@@ -1984,7 +1977,7 @@ class Unit : public WorldObject
         void _SetAINotifyScheduled(bool on) { m_AINotifyScheduled = on;}       // only for call from RelocationNotifyEvent code
         void OnRelocated();
 
-        bool IsLinkingEventTrigger() { return m_isCreatureLinkingTrigger; }
+        bool IsLinkingEventTrigger() const { return m_isCreatureLinkingTrigger; }
 
         // Transports
         Transport* GetTransport() const { return m_transport; }
@@ -2004,6 +1997,11 @@ class Unit : public WorldObject
         VehicleKit* GetVehicle() const { return m_pVehicle; }
         VehicleKit* GetVehicleKit() const { return m_pVehicleKit; }
         void RemoveVehicleKit();
+
+        void BuildSendPlayVisualPacket(WorldPacket* data, uint32 value, bool impact);
+        void BuildForceMoveRootPacket(WorldPacket* data, bool apply, uint32 value);
+
+        bool IsSplineEnabled() const;
 
     protected:
         explicit Unit ();
@@ -2027,11 +2025,12 @@ class Unit : public WorldObject
 
         SingleCastSpellTargetMap m_singleCastSpellTargets;  // casted by unit single per-caster auras
 
-        typedef std::list<ObjectGuid> DynObjectGUIDs;
-        DynObjectGUIDs m_dynObjGUIDs;
+        GuidList m_dynObjGUIDs;
 
         typedef std::list<GameObject*> GameObjectList;
         GameObjectList m_gameObj;
+        typedef std::map<uint32, ObjectGuid> WildGameObjectMap;
+        WildGameObjectMap m_wildGameObjs;
         bool m_isSorted;
         uint32 m_transform;
 
@@ -2096,7 +2095,7 @@ class Unit : public WorldObject
 
         ComboPointHolderSet m_ComboPointHolders;
 
-        GuardianPetList m_guardianPets;
+        GuidSet m_guardianPets;
 
         ObjectGuid m_TotemSlot[MAX_TOTEM_SLOT];
 
@@ -2130,7 +2129,7 @@ void Unit::CallForAllControlledUnits(Func const& func, uint32 controlledMask)
 
     if (controlledMask & CONTROLLED_GUARDIANS)
     {
-        for(GuardianPetList::const_iterator itr = m_guardianPets.begin(); itr != m_guardianPets.end();)
+        for (GuidSet::const_iterator itr = m_guardianPets.begin(); itr != m_guardianPets.end();)
             if (Pet* guardian = _GetPet(*(itr++)))
                 func(guardian);
     }
@@ -2163,7 +2162,7 @@ bool Unit::CheckAllControlledUnits(Func const& func, uint32 controlledMask) cons
 
     if (controlledMask & CONTROLLED_GUARDIANS)
     {
-        for(GuardianPetList::const_iterator itr = m_guardianPets.begin(); itr != m_guardianPets.end();)
+        for (GuidSet::const_iterator itr = m_guardianPets.begin(); itr != m_guardianPets.end();)
             if (Pet const* guardian = _GetPet(*(itr++)))
                 if (func(guardian))
                     return true;

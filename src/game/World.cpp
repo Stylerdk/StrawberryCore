@@ -43,11 +43,11 @@
 #include "SpellMgr.h"
 #include "Chat.h"
 #include "DBCStores.h"
+#include "DB2Stores.h"
 #include "MassMailMgr.h"
 #include "LootMgr.h"
 #include "ItemEnchantmentMgr.h"
 #include "MapManager.h"
-#include "ScriptBase/Event/EventScripts.h"
 #include "CreatureAIRegistry.h"
 #include "Policies/SingletonImp.h"
 #include "BattleGroundMgr.h"
@@ -69,6 +69,7 @@
 #include "Vehicle.h"
 #include "WardenDataStorage.h"
 #include "ScriptMgr.h"
+#include "BattlefieldMgr.h"
 
 INSTANTIATE_SINGLETON_1( World );
 
@@ -134,7 +135,7 @@ World::~World()
 
     m_weathers.clear();
 
-    CliCommandHolder* command;
+    CliCommandHolder* command = NULL;
     while (cliCmdQueue.next(command))
         delete command;
 
@@ -442,7 +443,7 @@ void World::LoadConfigSettings(bool reload)
     if (!confVersion)
     {
         sLog.outError("*****************************************************************************");
-        sLog.outError(" WARNING: StrawberryWorld.conf does not include a ConfVersion variable.");
+        sLog.outError(" WARNING: strawberryworld.conf does not include a ConfVersion variable.");
         sLog.outError("          Your configuration file may be out of date!");
         sLog.outError("*****************************************************************************");
         Log::WaitBeforeContinueIfNeed();
@@ -452,7 +453,7 @@ void World::LoadConfigSettings(bool reload)
         if (confVersion < _STRAWBERRYWORLDCONFVERSION)
         {
             sLog.outError("*****************************************************************************");
-            sLog.outError(" WARNING: Your StrawberryWorld.conf version indicates your conf file is out of date!");
+            sLog.outError(" WARNING: Your strawberryworld.conf version indicates your conf file is out of date!");
             sLog.outError("          Please check for updates, as your current default values may cause");
             sLog.outError("          unexpected behavior.");
             sLog.outError("*****************************************************************************");
@@ -471,7 +472,7 @@ void World::LoadConfigSettings(bool reload)
     setConfigPos(CONFIG_FLOAT_RATE_POWER_RAGE_LOSS, "Rate.Rage.Loss", 1.0f);
     setConfig(CONFIG_FLOAT_RATE_POWER_RUNICPOWER_INCOME, "Rate.RunicPower.Income", 1.0f);
     setConfigPos(CONFIG_FLOAT_RATE_POWER_RUNICPOWER_LOSS,"Rate.RunicPower.Loss",   1.0f);
-    setConfig(CONFIG_FLOAT_RATE_POWER_FOCUS,             "Rate.Focus",  1.0f);
+    setConfig(CONFIG_FLOAT_RATE_POWER_FOCUS,             "Rate.Focus", 1.0f);
     setConfig(CONFIG_FLOAT_RATE_POWER_ENERGY,            "Rate.Energy", 1.0f);
     setConfigPos(CONFIG_FLOAT_RATE_SKILL_DISCOVERY,      "Rate.Skill.Discovery",      1.0f);
     setConfigPos(CONFIG_FLOAT_RATE_DROP_ITEM_POOR,       "Rate.Drop.Item.Poor",       1.0f);
@@ -887,7 +888,7 @@ void World::LoadConfigSettings(bool reload)
     if (reload)
     {
         if (dataPath != m_dataPath)
-            sLog.outError("DataDir option can't be changed at StrawberryWorld.conf reload, using current value (%s).", m_dataPath.c_str());
+            sLog.outError("DataDir option can't be changed at strawberryworld.conf reload, using current value (%s).", m_dataPath.c_str());
     }
     else
     {
@@ -942,7 +943,7 @@ void World::SetInitialWorldSettings()
         (m_configUint32Values[CONFIG_UINT32_EXPANSION] &&
         (!MapManager::ExistMapAndVMap(530,10349.6f,-6357.29f) || !MapManager::ExistMapAndVMap(530,-3961.64f,-13931.2f))))
     {
-        sLog.outError("Correct *.map files not found in path '%smaps' or *.vmtree/*.vmtile files in '%svmaps'. Please place *.map and vmap files in appropriate directories or correct the DataDir value in the StrawberryWorld.conf file.",m_dataPath.c_str(),m_dataPath.c_str());
+        sLog.outError("Correct *.map files not found in path '%smaps' or *.vmtree/*.vmtile files in '%svmaps'. Please place *.map and vmap files in appropriate directories or correct the DataDir value in the strawberryworld.conf file.",m_dataPath.c_str(),m_dataPath.c_str());
         Log::WaitBeforeContinueIfNeed();
         //exit(1);
     }
@@ -970,8 +971,12 @@ void World::SetInitialWorldSettings()
     ///- Load the DBC files
     sLog.outString("Initialize data stores...");
     LoadDBCStores(m_dataPath);
+    LoadDB2Stores(m_dataPath);
     DetectDBCLang();
     sObjectMgr.SetDBCLocaleIndex(GetDefaultDbcLocale());    // Get once for all the locale index of DBC language (console/broadcasts)
+
+    sLog.outString( "Loading SpellTemplate..." );
+    sObjectMgr.LoadSpellTemplate();
 
     sLog.outString( "Loading Script Names...");
     sEventScriptMgr.LoadScriptNames();
@@ -1062,8 +1067,9 @@ void World::SetInitialWorldSettings()
     sLog.outString( "Loading SpellsScriptTarget...");
     sSpellMgr.LoadSpellScriptTarget();                      // must be after LoadCreatureTemplates and LoadGameobjectInfo
 
-    sLog.outString( "Loading ItemRequiredTarget...");
-    sObjectMgr.LoadItemRequiredTarget();
+    // ToDo: FIX!!!
+    //sLog.outString( "Loading ItemRequiredTarget...");
+    //sObjectMgr.LoadItemRequiredTarget();
 
     sLog.outString( "Loading Reputation Reward Rates...");
     sObjectMgr.LoadReputationRewardRate();
@@ -1116,6 +1122,9 @@ void World::SetInitialWorldSettings()
     sLog.outString( "Loading Quest POI" );
     sObjectMgr.LoadQuestPOI();
 
+    sLog.outString( "Loading Quest Phase Maps..." );
+    sObjectMgr.LoadQuestPhaseMaps();
+
     sLog.outString( "Loading Quests Relations..." );
     sLog.outString();
     sObjectMgr.LoadQuestRelations();                        // must be after quest load
@@ -1127,6 +1136,10 @@ void World::SetInitialWorldSettings()
     sGameEventMgr.LoadFromDB();
     sLog.outString( ">>> Game Event Data loaded" );
     sLog.outString();
+
+    // Load Conditions
+    sLog.outString( "Loading Conditions..." );
+    sObjectMgr.LoadConditions();
 
     sLog.outString( "Creating map persistent states for non-instanceable maps..." );   // must be after PackInstances(), LoadCreatures(), sPoolMgr.LoadFromDB(), sGameEventMgr.LoadFromDB();
     sMapPersistentStateMgr.InitWorldMaps();
@@ -1208,8 +1221,8 @@ void World::SetInitialWorldSettings()
     sLog.outString( "Loading Skill Fishing base level requirements..." );
     sObjectMgr.LoadFishingBaseSkillLevel();
 
-    sLog.outString( "Loading Achievements..." );
     sLog.outString();
+    sLog.outString( "Loading Achievements..." );
     sAchievementMgr.LoadAchievementReferenceList();
     sAchievementMgr.LoadAchievementCriteriaList();
     sAchievementMgr.LoadAchievementCriteriaRequirements();
@@ -1269,6 +1282,9 @@ void World::SetInitialWorldSettings()
     sLog.outString( "Loading Guilds..." );
     sGuildMgr.LoadGuilds();
 
+    sLog.outString( "Loading Guild Rewards...");
+    sGuildMgr.LoadGuildRewards();
+
     sLog.outString( "Loading ArenaTeams..." );
     sObjectMgr.LoadArenaTeams();
 
@@ -1304,6 +1320,7 @@ void World::SetInitialWorldSettings()
     sEventScriptMgr.LoadQuestEndScripts();                           // must be after load Creature/Gameobject(Template/Data) and QuestTemplate
     sEventScriptMgr.LoadSpellScripts();                              // must be after load Creature/Gameobject(Template/Data)
     sEventScriptMgr.LoadGameObjectScripts();                         // must be after load Creature/Gameobject(Template/Data)
+    sEventScriptMgr.LoadGameObjectTemplateScripts();                 // must be after load Creature/Gameobject(Template/Data)
     sEventScriptMgr.LoadEventScripts();                              // must be after load Creature/Gameobject(Template/Data)
     sLog.outString( ">>> Scripts loaded" );
     sLog.outString();
@@ -1383,6 +1400,10 @@ void World::SetInitialWorldSettings()
     sLog.outString( "Starting BattleGround System" );
     sBattleGroundMgr.CreateInitialBattleGrounds();
     sBattleGroundMgr.InitAutomaticArenaPointDistribution();
+
+    ///- Initialize Battlefields
+    sLog.outString( "Starting Battlefield System" );
+    sBattlefieldMgr.Initialize();
 
     //Not sure if this can be moved up in the sequence (with static data loading) as it uses MapManager
     sLog.outString( "Loading Transports..." );
@@ -1557,6 +1578,7 @@ void World::Update(uint32 diff)
     ///- Update objects (maps, transport, creatures,...)
     sMapMgr.Update(diff);
     sBattleGroundMgr.Update(diff);
+    sBattlefieldMgr.Update(diff);
 
     ///- Delete all characters which have been deleted X days before
     if (m_timers[WUPDATE_DELETECHARS].Passed())
@@ -1600,7 +1622,7 @@ void World::Update(uint32 diff)
 }
 
 /// Send a packet to all players (except self if mentioned)
-void World::SendGlobalMessage(WorldPacket *packet, WorldSession *self, uint32 team)
+void World::SendGlobalMessage(WorldPacket* packet, WorldSession* self /*= NULL*/, Team team /*= TEAM_NONE*/)
 {
     SessionMap::const_iterator itr;
     for (itr = m_sessions.begin(); itr != m_sessions.end(); ++itr)
@@ -1609,7 +1631,7 @@ void World::SendGlobalMessage(WorldPacket *packet, WorldSession *self, uint32 te
             itr->second->GetPlayer() &&
             itr->second->GetPlayer()->IsInWorld() &&
             itr->second != self &&
-            (team == 0 || itr->second->GetPlayer()->GetTeam() == team) )
+            (team == TEAM_NONE || itr->second->GetPlayer()->GetTeam() == team))
         {
             itr->second->SendPacket(packet);
         }
@@ -1693,7 +1715,7 @@ void World::SendWorldText(int32 string_id, ...)
 }
 
 /// DEPRICATED, only for debug purpose. Send a System Message to all players (except self if mentioned)
-void World::SendGlobalText(const char* text, WorldSession *self)
+void World::SendGlobalText(const char* text, WorldSession* self)
 {
     WorldPacket data;
 
@@ -1701,17 +1723,17 @@ void World::SendGlobalText(const char* text, WorldSession *self)
     char* buf = strawberry_strdup(text);
     char* pos = buf;
 
-    while(char* line = ChatHandler::LineFromMessage(pos))
+    while (char* line = ChatHandler::LineFromMessage(pos))
     {
         ChatHandler::FillMessageData(&data, NULL, CHAT_MSG_SYSTEM, LANG_UNIVERSAL, line);
         SendGlobalMessage(&data, self);
     }
 
-    delete [] buf;
+    delete[] buf;
 }
 
 /// Send a packet to all players (or players selected team) in the zone (except self if mentioned)
-void World::SendZoneMessage(uint32 zone, WorldPacket *packet, WorldSession *self, uint32 team)
+void World::SendZoneMessage(uint32 zone, WorldPacket* packet, WorldSession* self /*= NULL*/, Team team /*= TEAM_NONE*/)
 {
     SessionMap::const_iterator itr;
     for (itr = m_sessions.begin(); itr != m_sessions.end(); ++itr)
@@ -1721,7 +1743,7 @@ void World::SendZoneMessage(uint32 zone, WorldPacket *packet, WorldSession *self
             itr->second->GetPlayer()->IsInWorld() &&
             itr->second->GetPlayer()->GetZoneId() == zone &&
             itr->second != self &&
-            (team == 0 || itr->second->GetPlayer()->GetTeam() == team) )
+            (team == TEAM_NONE || itr->second->GetPlayer()->GetTeam() == team))
         {
             itr->second->SendPacket(packet);
         }
@@ -1729,11 +1751,11 @@ void World::SendZoneMessage(uint32 zone, WorldPacket *packet, WorldSession *self
 }
 
 /// Send a System Message to all players in the zone (except self if mentioned)
-void World::SendZoneText(uint32 zone, const char* text, WorldSession *self, uint32 team)
+void World::SendZoneText(uint32 zone, const char* text, WorldSession* self /*= NULL*/, Team team /*= TEAM_NONE*/)
 {
     WorldPacket data;
     ChatHandler::FillMessageData(&data, NULL, CHAT_MSG_SYSTEM, LANG_UNIVERSAL, text);
-    SendZoneMessage(zone, &data, self,team);
+    SendZoneMessage(zone, &data, self, team);
 }
 
 /// Kick (and save) all players
@@ -1938,16 +1960,16 @@ void World::ShutdownCancel()
 }
 
 /// Send a server message to the user(s)
-void World::SendServerMessage(ServerMessageType type, const char *text, Player* player)
+void World::SendServerMessage(ServerMessageType type, const char* text /*=""*/, Player* player /*= NULL*/)
 {
     WorldPacket data(SMSG_SERVER_MESSAGE, 50);              // guess size
     data << uint32(type);
     data << text;
 
-    if(player)
+    if (player)
         player->GetSession()->SendPacket(&data);
     else
-        SendGlobalMessage( &data );
+        SendGlobalMessage(&data);
 }
 
 void World::UpdateSessions( uint32 diff )
@@ -2336,7 +2358,7 @@ bool World::configNoReload(bool reload, eConfigUInt32Values index, char const* f
 
     uint32 val = sConfig.GetIntDefault(fieldname, defvalue);
     if (val != getConfig(index))
-        sLog.outError("%s option can't be changed at StrawberryWorld.conf reload, using current value (%u).", fieldname, getConfig(index));
+        sLog.outError("%s option can't be changed at strawberryworld.conf reload, using current value (%u).", fieldname, getConfig(index));
 
     return false;
 }
@@ -2348,7 +2370,7 @@ bool World::configNoReload(bool reload, eConfigInt32Values index, char const* fi
 
     int32 val = sConfig.GetIntDefault(fieldname, defvalue);
     if (val != getConfig(index))
-        sLog.outError("%s option can't be changed at StrawberryWorld.conf reload, using current value (%i).", fieldname, getConfig(index));
+        sLog.outError("%s option can't be changed at strawberryworld.conf reload, using current value (%i).", fieldname, getConfig(index));
 
     return false;
 }
@@ -2360,7 +2382,7 @@ bool World::configNoReload(bool reload, eConfigFloatValues index, char const* fi
 
     float val = sConfig.GetFloatDefault(fieldname, defvalue);
     if (val != getConfig(index))
-        sLog.outError("%s option can't be changed at StrawberryWorld.conf reload, using current value (%f).", fieldname, getConfig(index));
+        sLog.outError("%s option can't be changed at strawberryworld.conf reload, using current value (%f).", fieldname, getConfig(index));
 
     return false;
 }
@@ -2372,7 +2394,7 @@ bool World::configNoReload(bool reload, eConfigBoolValues index, char const* fie
 
     bool val = sConfig.GetBoolDefault(fieldname, defvalue);
     if (val != getConfig(index))
-        sLog.outError("%s option can't be changed at StrawberryWorld.conf reload, using current value (%s).", fieldname, getConfig(index) ? "'true'" : "'false'");
+        sLog.outError("%s option can't be changed at strawberryworld.conf reload, using current value (%s).", fieldname, getConfig(index) ? "'true'" : "'false'");
 
     return false;
 }

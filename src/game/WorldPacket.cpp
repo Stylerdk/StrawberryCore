@@ -20,7 +20,7 @@
 #include "WorldPacket.h"
 #include <zlib/zlib.h>
 #include "World.h"
-/*
+
 void WorldPacket::Compress(Opcodes opcode)
 {
     Opcodes uncompressedOpcode = (Opcodes)GetOpcode();
@@ -42,7 +42,7 @@ void WorldPacket::Compress(Opcodes opcode)
     sLog.outDebug("Successfully compressed opcode %u (len %u) to %u (len %u)",
         uncompressedOpcode, size, opcode, destsize);
 }
-*/
+
 void WorldPacket::Compress(void* dst, uint32 *dst_size, const void* src, int src_size)
 {
     z_stream c_stream;

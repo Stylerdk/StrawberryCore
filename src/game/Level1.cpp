@@ -246,8 +246,6 @@ bool ChatHandler::HandleGMVisibleCommand(char* args)
     return true;
 }
 
-
-
 bool ChatHandler::HandleGPSCommand(char* args)
 {
     WorldObject *obj = NULL;
@@ -1470,18 +1468,30 @@ bool ChatHandler::HandleModifyMountCommand(char* args)
     chr->SetUInt32Value(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP);
     chr->Mount(mId);
 
-    WorldPacket data( SMSG_FORCE_RUN_SPEED_CHANGE, (8+4+1+4) );
-    data << chr->GetPackGUID();
-    data << (uint32)0;
-    data << (uint8)0;                                       //new 2.1.0
-    data << float(speed);
-    chr->SendMessageToSet( &data, true );
+    ObjectGuid guid = chr->GetObjectGuid();
 
-    data.Initialize( SMSG_FORCE_SWIM_SPEED_CHANGE, (8+4+4) );
-    data << chr->GetPackGUID();
-    data << (uint32)0;
+    uint8 guidMaskRun[] = { 6, 1, 5, 2, 7, 0, 3, 4 };
+    uint8 guidBytesRun[] = { 5, 3, 1, 4, 6, 0, 7, 2 };
+
+    WorldPacket data(SMSG_MOVE_SET_RUN_SPEED, 8 + 4 + 4);
+    data.WriteGuidMask(guid, guidMaskRun, 8, 0);
+    data.WriteGuidBytes(guid, guidBytesRun, 4, 0);
+    data << uint32(0);
     data << float(speed);
-    chr->SendMessageToSet( &data, true );
+    data.WriteGuidBytes(guid, guidBytesRun, 4, 4);
+    chr->SendMessageToSet(&data, true);
+
+    uint8 guidMaskSwim[] = { 5, 4, 7, 3, 2, 0, 1, 6 };
+    uint8 guidBytesSwim[] = { 0, 6, 3, 5, 2, 1, 7, 4 };
+
+    data.Initialize(SMSG_MOVE_SET_SWIM_SPEED, 8 + 4 + 4);
+    data.WriteGuidMask(guid, guidMaskSwim, 8, 0);
+    data.WriteGuidBytes(guid, guidBytesSwim, 1, 0);
+    data << uint32(0);
+    data.WriteGuidBytes(guid, guidBytesSwim, 4, 1);
+    data << float(speed);
+    data.WriteGuidBytes(guid, guidBytesSwim, 3, 5);
+    chr->SendMessageToSet(&data, true);
 
     return true;
 }

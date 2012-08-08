@@ -34,7 +34,6 @@
 #include "UpdateData.h"
 #include "LootMgr.h"
 #include "Chat.h"
-#include "ScriptBase/Event/EventScripts.h"
 #include <zlib/zlib.h>
 #include "ObjectAccessor.h"
 #include "Object.h"
@@ -282,7 +281,7 @@ void WorldSession::HandleLogoutRequestOpcode( WorldPacket & /*recv_data*/ )
         return;
     }
 
-    //instant logout in taverns/cities or on taxi or for admins, gm's, mod's if its enabled in StrawberryWorld.conf
+    //instant logout in taverns/cities or on taxi or for admins, gm's, mod's if its enabled in strawberryworld.conf
     if (GetPlayer()->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_RESTING) || GetPlayer()->IsTaxiFlying() ||
         GetSecurity() >= (AccountTypes)sWorld.getConfig(CONFIG_UINT32_INSTANT_LOGOUT))
     {
@@ -297,10 +296,9 @@ void WorldSession::HandleLogoutRequestOpcode( WorldPacket & /*recv_data*/ )
         if ((GetPlayer()->GetPositionZ() < height + 0.1f) && !(GetPlayer()->IsInWater()))
             GetPlayer()->SetStandState(UNIT_STAND_STATE_SIT);
 
-        WorldPacket data( SMSG_FORCE_MOVE_ROOT, (8+4) );    // guess size
-        data << GetPlayer()->GetPackGUID();
-        data << (uint32)2;
-        SendPacket( &data );
+        WorldPacket data(SMSG_FORCE_MOVE_ROOT, 8 + 4);      // guess size
+        GetPlayer()->BuildForceMoveRootPacket(&data, true, 2);
+        SendPacket(&data);
         GetPlayer()->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_STUNNED);
     }
 
@@ -322,17 +320,16 @@ void WorldSession::HandleLogoutCancelOpcode( WorldPacket & /*recv_data*/ )
 
     LogoutRequest(0);
 
-    WorldPacket data( SMSG_LOGOUT_CANCEL_ACK, 0 );
+    WorldPacket data( SMSG_LOGOUT_CANCEL, 0 );
     SendPacket( &data );
 
     // not remove flags if can't free move - its not set in Logout request code.
     if(GetPlayer()->CanFreeMove())
     {
         //!we can move again
-        data.Initialize( SMSG_FORCE_MOVE_UNROOT, 8 );       // guess size
-        data << GetPlayer()->GetPackGUID();
-        data << uint32(0);
-        SendPacket( &data );
+        data.Initialize(SMSG_FORCE_MOVE_UNROOT, 8);         // guess size
+        GetPlayer()->BuildForceMoveRootPacket(&data, false, 0);
+        SendPacket(&data);
 
         //! Stand Up
         GetPlayer()->SetStandState(UNIT_STAND_STATE_STAND);
@@ -341,7 +338,7 @@ void WorldSession::HandleLogoutCancelOpcode( WorldPacket & /*recv_data*/ )
         GetPlayer()->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_STUNNED);
     }
 
-    DEBUG_LOG( "WORLD: sent SMSG_LOGOUT_CANCEL_ACK Message" );
+    DEBUG_LOG( "WORLD: sent SMSG_LOGOUT_CANCEL Message" );
 }
 
 void WorldSession::HandleTogglePvP( WorldPacket & recv_data )
@@ -444,7 +441,6 @@ void WorldSession::HandleAddFriendOpcode( WorldPacket & recv_data )
     std::string friendNote;
 
     recv_data >> friendName;
-
     recv_data >> friendNote;
 
     if(!normalizePlayerName(friendName))
@@ -452,8 +448,7 @@ void WorldSession::HandleAddFriendOpcode( WorldPacket & recv_data )
 
     CharacterDatabase.escape_string(friendName);            // prevent SQL injection - normal name don't must changed by this call
 
-    DEBUG_LOG( "WORLD: %s asked to add friend : '%s'",
-        GetPlayer()->GetName(), friendName.c_str() );
+    DEBUG_LOG( "WORLD: %s asked to add friend : '%s'", GetPlayer()->GetName(), friendName.c_str() );
 
     CharacterDatabase.AsyncPQuery(&WorldSession::HandleAddFriendOpcodeCallBack, GetAccountId(), friendNote, "SELECT guid, race FROM characters WHERE name = '%s'", friendName.c_str());
 }
@@ -1010,10 +1005,24 @@ void WorldSession::HandleMoveTimeSkippedOpcode( WorldPacket & recv_data )
     /*  WorldSession::Update( WorldTimer::getMSTime() );*/
     DEBUG_LOG( "WORLD: Time Lag/Synchronization Resent/Update" );
 
-    ObjectGuid guid;
-
-    recv_data >> guid.ReadAsPacked();
     recv_data >> Unused<uint32>();
+
+    uint64 playerGuid = 0;
+
+    BitStream mask = recv_data.ReadBitStream(8);
+
+    ByteBuffer bytes(8, true);
+
+    if (mask[3]) bytes[7] = recv_data.ReadUInt8() ^ 1;
+    if (mask[1]) bytes[1] = recv_data.ReadUInt8() ^ 1;
+    if (mask[7]) bytes[2] = recv_data.ReadUInt8() ^ 1;
+    if (mask[6]) bytes[4] = recv_data.ReadUInt8() ^ 1;
+    if (mask[2]) bytes[3] = recv_data.ReadUInt8() ^ 1;
+    if (mask[4]) bytes[6] = recv_data.ReadUInt8() ^ 1;
+    if (mask[5]) bytes[0] = recv_data.ReadUInt8() ^ 1;
+    if (mask[0]) bytes[5] = recv_data.ReadUInt8() ^ 1;
+
+    playerGuid = BitConverter::ToUInt64(bytes);
 
     /*
         ObjectGuid guid;
@@ -1042,48 +1051,18 @@ void WorldSession::HandleMoveUnRootAck(WorldPacket& recv_data)
 {
     // no used
     recv_data.rpos(recv_data.wpos());                       // prevent warnings spam
-/*
-    ObjectGuid guid;
-    recv_data >> guid;
-
-    // now can skip not our packet
-    if(_player->GetGUID() != guid)
-    {
-        recv_data.rpos(recv_data.wpos());                   // prevent warnings spam
-        return;
-    }
-
-    DEBUG_LOG( "WORLD: CMSG_FORCE_MOVE_UNROOT_ACK" );
-
-    recv_data.read_skip<uint32>();                          // unk
-
-    MovementInfo movementInfo;
-    ReadMovementInfo(recv_data, &movementInfo);
-*/
+    /*
+        bitsream packet
+    */
 }
 
 void WorldSession::HandleMoveRootAck(WorldPacket& recv_data)
 {
     // no used
     recv_data.rpos(recv_data.wpos());                       // prevent warnings spam
-/*
-    ObjectGuid guid;
-    recv_data >> guid;
-
-    // now can skip not our packet
-    if(_player->GetObjectGuid() != guid)
-    {
-        recv_data.rpos(recv_data.wpos());                   // prevent warnings spam
-        return;
-    }
-
-    DEBUG_LOG( "WORLD: CMSG_FORCE_MOVE_ROOT_ACK" );
-
-    recv_data.read_skip<uint32>();                          // unk
-
-    MovementInfo movementInfo;
-    ReadMovementInfo(recv_data, &movementInfo);
-*/
+    /*
+        bitsream packet
+    */
 }
 
 void WorldSession::HandleSetActionBarTogglesOpcode(WorldPacket& recv_data)
@@ -1175,21 +1154,21 @@ void WorldSession::HandleWorldTeleportOpcode(WorldPacket& recv_data)
     float Orientation;
 
     recv_data >> mapid;
-    recv_data >> Orientation;
-    recv_data >> PositionY;
     recv_data >> PositionX;
     recv_data >> PositionZ;
+    recv_data >> PositionY;
+    recv_data >> Orientation;
 
     BitStream mask = recv_data.ReadBitStream(8);
     ByteBuffer bytes(8, true);
 
-    if (mask[3]) bytes[6] = recv_data.ReadUInt8() ^ 1;
-    if (mask[2]) bytes[0] = recv_data.ReadUInt8() ^ 1;
+    if (mask[6]) bytes[1] = recv_data.ReadUInt8() ^ 1;
+    if (mask[1]) bytes[0] = recv_data.ReadUInt8() ^ 1;
     if (mask[7]) bytes[2] = recv_data.ReadUInt8() ^ 1;
-    if (mask[6]) bytes[7] = recv_data.ReadUInt8() ^ 1;
-    if (mask[0]) bytes[5] = recv_data.ReadUInt8() ^ 1;
-    if (mask[1]) bytes[1] = recv_data.ReadUInt8() ^ 1;
-    if (mask[5]) bytes[4] = recv_data.ReadUInt8() ^ 1;
+    if (mask[5]) bytes[7] = recv_data.ReadUInt8() ^ 1;
+    if (mask[3]) bytes[4] = recv_data.ReadUInt8() ^ 1;
+    if (mask[2]) bytes[5] = recv_data.ReadUInt8() ^ 1;
+    if (mask[0]) bytes[6] = recv_data.ReadUInt8() ^ 1;
     if (mask[4]) bytes[3] = recv_data.ReadUInt8() ^ 1;
 
     uint64 playerGuid = BitConverter::ToUInt64(bytes);
@@ -1609,16 +1588,30 @@ void WorldSession::HandleUpdateObjectFailure(WorldPacket & recv_data)
     BitStream mask = recv_data.ReadBitStream(8);
     ByteBuffer bytes(8, true);
 
-    if (mask[1]) bytes[0] = recv_data.ReadUInt8() ^ 1;
-    if (mask[3]) bytes[6] = recv_data.ReadUInt8() ^ 1;
-    if (mask[6]) bytes[1] = recv_data.ReadUInt8() ^ 1;
-    if (mask[7]) bytes[4] = recv_data.ReadUInt8() ^ 1;
-    if (mask[5]) bytes[3] = recv_data.ReadUInt8() ^ 1;
-    if (mask[4]) bytes[7] = recv_data.ReadUInt8() ^ 1;
-    if (mask[2]) bytes[5] = recv_data.ReadUInt8() ^ 1;
-    if (mask[0]) bytes[2] = recv_data.ReadUInt8() ^ 1;
+    if (mask[0]) bytes[6] = recv_data.ReadUInt8() ^ 1;
+    if (mask[1]) bytes[7] = recv_data.ReadUInt8() ^ 1;
+    if (mask[7]) bytes[2] = recv_data.ReadUInt8() ^ 1;
+    if (mask[6]) bytes[3] = recv_data.ReadUInt8() ^ 1;
+    if (mask[4]) bytes[1] = recv_data.ReadUInt8() ^ 1;
+    if (mask[2]) bytes[4] = recv_data.ReadUInt8() ^ 1;
+    if (mask[3]) bytes[0] = recv_data.ReadUInt8() ^ 1;
+    if (mask[5]) bytes[5] = recv_data.ReadUInt8() ^ 1;
 
     guid = ObjectGuid(BitConverter::ToUInt64(bytes));
 
     sLog.outError("[Update Object Error] Guid: %i, TypeId: %i, TypeName: %s.", guid.GetCounter(), guid.GetTypeId(), guid.GetTypeName());
 }
+
+void WorldSession::HandlePlayerViolenceLevel(WorldPacket & recv_data)
+{
+    DEBUG_LOG("Recieved PlayerViolenceLevel");
+
+    uint8 violenceLevel = 0;
+    recv_data >> violenceLevel;
+}
+
+void WorldSession::HandleLogDisconnect(WorldPacket& recv_data)
+{
+    recv_data.read_skip<uint32>();
+}
+

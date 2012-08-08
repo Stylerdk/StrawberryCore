@@ -125,17 +125,17 @@ void ReputationMgr::SendState(FactionState const* faction)
 {
     uint32 count = 1;
 
-    WorldPacket data(SMSG_SET_FACTION_STANDING, (16));  // last check 2.4.0
-    data << (float) 0;                                  // unk 2.4.0
-    data << (uint8) 0;                                  // wotlk 8634
+    WorldPacket data(SMSG_SET_FACTION_STANDING, (16));      // last check 2.4.0
+    data << (float) 0;                                      // unk 2.4.0
+    data << (uint8) 0;                                      // wotlk 8634
 
     size_t p_count = data.wpos();
-    data << (uint32) count;                             // placeholder
+    data << (uint32) count;                                 // placeholder
 
     data << (uint32) faction->ReputationListID;
     data << (uint32) faction->Standing;
 
-    for (FactionStateList::iterator itr = m_factions.begin(); itr != m_factions.end(); ++itr)
+    for(FactionStateList::iterator itr = m_factions.begin(); itr != m_factions.end(); ++itr)
     {
         if (itr->second.needSend)
         {
@@ -157,22 +157,22 @@ void ReputationMgr::SendState(FactionState const* faction)
 void ReputationMgr::SendInitialReputations()
 {
     WorldPacket data(SMSG_INITIALIZE_FACTIONS, (4+128*5));
-    data << uint32 (0x00000080);
+    data << uint32(256);
 
     RepListID a = 0;
 
     for (FactionStateList::iterator itr = m_factions.begin(); itr != m_factions.end(); ++itr)
     {
         // fill in absent fields
-        for (; a != itr->first; a++)
+        for (; a != itr->first; ++a)
         {
-            data << uint8  (0x00);
-            data << uint32 (0x00000000);
+            data << uint8(0);
+            data << uint32(0);
         }
 
         // fill in encountered data
-        data << uint8  (itr->second.Flags);
-        data << uint32 (itr->second.Standing);
+        data << uint8(itr->second.Flags);
+        data << uint32(itr->second.Standing);
 
         itr->second.needSend = false;
 
@@ -180,10 +180,10 @@ void ReputationMgr::SendInitialReputations()
     }
 
     // fill in absent fields
-    for (; a != 128; a++)
+    for (; a != 256; ++a)
     {
-        data << uint8  (0x00);
-        data << uint32 (0x00000000);
+        data << uint8(0);
+        data << uint32(0);
     }
 
     m_player->SendDirectMessage(&data);
@@ -487,15 +487,8 @@ void ReputationMgr::LoadFromDB(QueryResult *result)
                 }
 
                 // set atWar for hostile
-                ForcedReactions::const_iterator forceItr = m_forcedReactions.find(factionEntry->ID);
-                if (forceItr != m_forcedReactions.end())
-                {
-                    if (forceItr->second <= REP_HOSTILE)
-                        SetAtWar(faction, true);
-                }
-                else if (GetRank(factionEntry) <= REP_HOSTILE)
-                    SetAtWar(faction, true);
-
+                if(GetRank(factionEntry) <= REP_HOSTILE)
+                    SetAtWar(faction,true);
 
                 // reset changed flag if values similar to saved in DB
                 if(faction->Flags==dbFactionFlags)

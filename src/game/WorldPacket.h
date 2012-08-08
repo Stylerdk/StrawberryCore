@@ -22,6 +22,7 @@
 
 #include "Common.h"
 #include "ByteBuffer.h"
+#include "Opcodes.h"
 
 // Note: m_opcode and size stored in platfom dependent format
 // ignore endianess until send, and converted at receive
@@ -37,6 +38,8 @@ class WorldPacket : public ByteBuffer
         explicit WorldPacket(Opcodes enumVal, size_t res=200) : ByteBuffer(res)
         {
             m_opcode = LookupOpcodeNumber(enumVal);
+            if (m_opcode >= NUM_MSG_TYPES)
+                sLog.outError("SESSION: Tried to build not updated packet with enum 0x%X", enumVal);
         }
 
         explicit WorldPacket(uint32 opcode, size_t res = 200) : ByteBuffer(res), m_opcode(opcode)
@@ -51,6 +54,8 @@ class WorldPacket : public ByteBuffer
         void Initialize(Opcodes enumVal, size_t newres=200)
         {
             Initialize(LookupOpcodeNumber(enumVal), newres);
+            if (m_opcode >= NUM_MSG_TYPES)
+                sLog.outError("SESSION: Tried to initialize not updated packet with enum 0x%X", enumVal);
         }
 
         void Initialize(uint32 opcode, size_t newres = 200)
@@ -65,7 +70,13 @@ class WorldPacket : public ByteBuffer
         Opcodes GetOpcodeEnum() const { return LookupOpcodeEnum(m_opcode); }
 
         void SetOpcode(uint32 opcode) { m_opcode = opcode; }
-        void SetOpcode(Opcodes enumVal) { m_opcode = LookupOpcodeNumber(enumVal); }
+        void SetOpcode(Opcodes enumVal)
+        {
+            m_opcode = LookupOpcodeNumber(enumVal);
+            if (m_opcode >= NUM_MSG_TYPES)
+                sLog.outError("SESSION: Tried to initialize not updated packet with enum 0x%X", enumVal);
+        }
+
         void Compress(Opcodes opcode);
 
         void ReadByteMask(uint8& b)
@@ -89,7 +100,7 @@ class WorldPacket : public ByteBuffer
         }
 
     protected:
-        uint32 m_opcode;
+        uint16 m_opcode;
         void Compress(void* dst, uint32 *dst_size, const void* src, int src_size);
 };
 #endif

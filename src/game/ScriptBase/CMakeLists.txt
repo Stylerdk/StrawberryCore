@@ -16,7 +16,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
-## magic to include revision data in SD2 version string
+## magic to Basic revision data in SD2 version string
 # revision.h: FORCE
 #   $(top_builddir)/src/tools/genrevision/genrevision $(srcdir)
 
@@ -36,8 +36,8 @@ foreach(SRC ${strawberryscript_SRCS})
   endif()
 endforeach(SRC)
 
-include_directories(
-  ${CMAKE_CURRENT_SOURCE_DIR}/base
+Basic_directories(
+  ${CMAKE_CURRENT_SOURCE_DIR}/Basic
   ${CMAKE_CURRENT_SOURCE_DIR}/Event
   ${CMAKE_CURRENT_SOURCE_DIR}/Loader
   ${CMAKE_CURRENT_SOURCE_DIR}/Texts
@@ -45,14 +45,13 @@ include_directories(
   ${CMAKE_SOURCE_DIR}/src/shared
   ${CMAKE_SOURCE_DIR}/src/framework
   ${CMAKE_SOURCE_DIR}/src/game
-  ${CMAKE_SOURCE_DIR}/dep/include
   ${CMAKE_BINARY_DIR}
   ${ACE_INCLUDE_DIR}
   ${MYSQL_INCLUDE_DIR}
 )
 
 if(PCH)
-  include_directories(
+  Basic_directories(
     ${CMAKE_CURRENT_BINARY_DIR}
   )
 endif()
@@ -129,11 +128,11 @@ endif()
 if(PCH)
   if(MSVC OR XCODE)
     if(MSVC)
-      set(strawberryscript_pch "${CMAKE_CURRENT_SOURCE_DIR}/include/precompiled.cpp")
+      set(strawberryscript_pch "${CMAKE_CURRENT_SOURCE_DIR}/Basic/precompiled.cpp")
     endif()
-    add_native_precompiled_header(mangosscript ${CMAKE_CURRENT_SOURCE_DIR}/include/precompiled.h)
+    add_native_precompiled_header(mangosscript ${CMAKE_CURRENT_SOURCE_DIR}/Basic/precompiled.h)
   elseif(CMAKE_COMPILER_IS_GNUCXX)
-    add_precompiled_header(mangosscript ${CMAKE_CURRENT_SOURCE_DIR}/include/precompiled.h)
+    add_precompiled_header(mangosscript ${CMAKE_CURRENT_SOURCE_DIR}/Basic/precompiled.h)
   endif()
 endif()
 # LIBRARY = dyld / so, RUNTIME = dll

@@ -26,10 +26,10 @@
 #include "Log.h"
 #include "MapManager.h"
 #include "ObjectGuid.h"
-#include "ScriptBase/Event/EventScripts.h"
 #include "SpellMgr.h"
 #include "UpdateMask.h"
 #include "World.h"
+#include "DB2Stores.h"
 #include "Group.h"
 #include "ArenaTeam.h"
 #include "Transports.h"
@@ -444,7 +444,7 @@ void ObjectMgr::LoadPointOfInterestLocales()
     delete result;
 
     sLog.outString();
-    sLog.outString( ">> Loaded %lu points_of_interest locale strings", (unsigned long)mPointOfInterestLocaleMap.size() );
+    sLog.outString(">> Loaded " SIZEFMTD " points_of_interest locale strings", mPointOfInterestLocaleMap.size());
 }
 
 struct SQLCreatureLoader : public SQLStorageLoaderBase<SQLCreatureLoader>
@@ -859,33 +859,33 @@ void ObjectMgr::LoadEquipmentTemplates()
         for(uint8 j = 0; j < 3; ++j)
         {
             if (!eqInfo->equipentry[j])
-               continue;
+                continue;
 
-            //ItemEntry const *dbcitem = sItemStore.LookupEntry(eqInfo->equipentry[j]);
+            ItemEntry const *dbcitem = sItemStore.LookupEntry(eqInfo->equipentry[j]);
+            if (!dbcitem)
+            {
+                sLog.outErrorDb("Unknown item (entry=%u) in creature_equip_template.equipentry%u for entry = %u, forced to 0.", eqInfo->equipentry[j], j+1, i);
+                const_cast<EquipmentInfo*>(eqInfo)->equipentry[j] = 0;
+                continue;
+            }
 
-            //if (!dbcitem)
-            //{
-            //    sLog.outErrorDb("Unknown item (entry=%u) in creature_equip_template.equipentry%u for entry = %u, forced to 0.", eqInfo->equipentry[j], j+1, i);
-            //    const_cast<EquipmentInfo*>(eqInfo)->equipentry[j] = 0;
-            //    continue;
-            //}
-
-            //if (dbcitem->InventoryType != INVTYPE_WEAPON &&
-            //    dbcitem->InventoryType != INVTYPE_SHIELD &&
-            //    dbcitem->InventoryType != INVTYPE_RANGED &&
-            //    dbcitem->InventoryType != INVTYPE_2HWEAPON &&
-            //    dbcitem->InventoryType != INVTYPE_WEAPONMAINHAND &&
-            //    dbcitem->InventoryType != INVTYPE_WEAPONOFFHAND &&
-            //    dbcitem->InventoryType != INVTYPE_HOLDABLE &&
-            //    dbcitem->InventoryType != INVTYPE_THROWN &&
-            //    dbcitem->InventoryType != INVTYPE_RANGEDRIGHT &&
-            //    dbcitem->InventoryType != INVTYPE_RELIC)
-            //{
-            //    sLog.outErrorDb("Item (entry=%u) in creature_equip_template.equipentry%u for entry = %u is not equipable in a hand, forced to 0.", eqInfo->equipentry[j], j+1, i);
-            //    const_cast<EquipmentInfo*>(eqInfo)->equipentry[j] = 0;
-            //}
+            if (dbcitem->InventoryType != INVTYPE_WEAPON &&
+                dbcitem->InventoryType != INVTYPE_SHIELD &&
+                dbcitem->InventoryType != INVTYPE_RANGED &&
+                dbcitem->InventoryType != INVTYPE_2HWEAPON &&
+                dbcitem->InventoryType != INVTYPE_WEAPONMAINHAND &&
+                dbcitem->InventoryType != INVTYPE_WEAPONOFFHAND &&
+                dbcitem->InventoryType != INVTYPE_HOLDABLE &&
+                dbcitem->InventoryType != INVTYPE_THROWN &&
+                dbcitem->InventoryType != INVTYPE_RANGEDRIGHT &&
+                dbcitem->InventoryType != INVTYPE_RELIC)
+            {
+                sLog.outErrorDb("Item (entry=%u) in creature_equip_template.equipentry%u for entry = %u is not equipable in a hand, forced to 0.", eqInfo->equipentry[j], j+1, i);
+                const_cast<EquipmentInfo*>(eqInfo)->equipentry[j] = 0;
+            }
         }
     }
+
     sLog.outString( ">> Loaded %u equipment template", sEquipmentStorage.RecordCount );
     sLog.outString();
 }
@@ -1271,9 +1271,6 @@ void ObjectMgr::LoadCreatures()
             continue;
         }
 
-        if (data.spawnMask & ~spawnMasks[data.mapid])
-            sLog.outErrorDb("Table `creature` have creature (GUID: %u) that have wrong spawn mask %u including not supported difficulty modes for map (Id: %u).",guid, data.spawnMask, data.mapid );
-
         bool ok = true;
         for (uint32 diff = 0; diff < MAX_DIFFICULTY - 1 && ok; ++diff)
         {
@@ -1552,9 +1549,6 @@ void ObjectMgr::LoadGameObjects()
             sLog.outErrorDb("Table `gameobject` have gameobject (GUID: %u Entry: %u) that spawned at nonexistent map (Id: %u), skip", guid, data.id, data.mapid);
             continue;
         }
-
-        if (data.spawnMask & ~spawnMasks[data.mapid])
-            sLog.outErrorDb("Table `gameobject` have gameobject (GUID: %u Entry: %u) that have wrong spawn mask %u including not supported difficulty modes for map (Id: %u), skip", guid, data.id, data.spawnMask, data.mapid);
 
         if (data.spawntimesecs == 0 && gInfo->IsDespawnAtAction())
         {
@@ -1863,60 +1857,52 @@ void ObjectMgr::LoadItemPrototypes()
     for(uint32 i = 1; i < sItemStorage.MaxEntry; ++i)
     {
         ItemPrototype const* proto = sItemStorage.LookupEntry<ItemPrototype >(i);
-        //ItemEntry const *dbcitem = sItemStore.LookupEntry(i);
+        ItemEntry const *dbcitem = sItemStore.LookupEntry(i);
         if(!proto)
-        {
-            /* to many errors, and possible not all items really used in game
-            if (dbcitem)
-                sLog.outErrorDb("Item (Entry: %u) doesn't exists in DB, but must exist.",i);
-            */
             continue;
-        }
 
-        if(true/*dbcitem*/)
+        if(dbcitem)
         {
-            //if(proto->Class != dbcitem->Class)
-            //{
-            //    sLog.outErrorDb("Item (Entry: %u) not correct class %u, must be %u (still using DB value).",i,proto->Class,dbcitem->Class);
-            //    // It safe let use Class from DB
-            //}
-            /* disabled: have some strange wrong cases for Subclass values.
-               for enable also uncomment Subclass field in ItemEntry structure and in Itemfmt[]
+            if(proto->Class != dbcitem->Class)
+            {
+                sLog.outErrorDb("Item (Entry: %u) not correct class %u, must be %u (still using DB value).",i,proto->Class,dbcitem->Class);
+                // It safe let use Class from DB
+            }
+
             if(proto->SubClass != dbcitem->SubClass)
             {
                 sLog.outErrorDb("Item (Entry: %u) not correct (Class: %u, Sub: %u) pair, must be (Class: %u, Sub: %u) (still using DB value).",i,proto->Class,proto->SubClass,dbcitem->Class,dbcitem->SubClass);
                 // It safe let use Subclass from DB
             }
-            */
 
-            //if(proto->Unk0 != dbcitem->Unk0)
-            //{
-            //    sLog.outErrorDb("Item (Entry: %u) not correct %i Unk0, must be %i (still using DB value).",i,proto->Unk0,dbcitem->Unk0);
-            //    // It safe let use Unk0 from DB
-            //}
+            if(proto->Unk0 != dbcitem->Unk0)
+            {
+                sLog.outErrorDb("Item (Entry: %u) not correct %i Unk0, must be %i (still using DB value).",i,proto->Unk0,dbcitem->Unk0);
+                // It safe let use Unk0 from DB
+            }
 
-            //if(proto->Material != dbcitem->Material)
-            //{
-            //    sLog.outErrorDb("Item (Entry: %u) not correct %i material, must be %i (still using DB value).",i,proto->Material,dbcitem->Material);
-            //    // It safe let use Material from DB
-            //}
+            if(proto->Material != dbcitem->Material)
+            {
+                sLog.outErrorDb("Item (Entry: %u) not correct %i material, must be %i (still using DB value).",i,proto->Material,dbcitem->Material);
+                // It safe let use Material from DB
+            }
 
-            //if(proto->InventoryType != dbcitem->InventoryType)
-            //{
-            //    sLog.outErrorDb("Item (Entry: %u) not correct %u inventory type, must be %u (still using DB value).",i,proto->InventoryType,dbcitem->InventoryType);
-            //    // It safe let use InventoryType from DB
-            //}
+            if(proto->InventoryType != dbcitem->InventoryType)
+            {
+                sLog.outErrorDb("Item (Entry: %u) not correct %u inventory type, must be %u (still using DB value).",i,proto->InventoryType,dbcitem->InventoryType);
+                // It safe let use InventoryType from DB
+            }
 
-            //if(proto->DisplayInfoID != dbcitem->DisplayId)
-            //{
-            //    sLog.outErrorDb("Item (Entry: %u) not correct %u display id, must be %u (using it).",i,proto->DisplayInfoID,dbcitem->DisplayId);
-            //    const_cast<ItemPrototype*>(proto)->DisplayInfoID = dbcitem->DisplayId;
-            //}
-            //if(proto->Sheath != dbcitem->Sheath)
-            //{
-            //    sLog.outErrorDb("Item (Entry: %u) not correct %u sheath, must be %u  (using it).",i,proto->Sheath,dbcitem->Sheath);
-            //    const_cast<ItemPrototype*>(proto)->Sheath = dbcitem->Sheath;
-            //}
+            if(proto->DisplayInfoID != dbcitem->DisplayId)
+            {
+                sLog.outErrorDb("Item (Entry: %u) not correct %u display id, must be %u (using it).",i,proto->DisplayInfoID,dbcitem->DisplayId);
+                const_cast<ItemPrototype*>(proto)->DisplayInfoID = dbcitem->DisplayId;
+            }
+            if(proto->Sheath != dbcitem->Sheath)
+            {
+                sLog.outErrorDb("Item (Entry: %u) not correct %u sheath, must be %u  (using it).",i,proto->Sheath,dbcitem->Sheath);
+                const_cast<ItemPrototype*>(proto)->Sheath = dbcitem->Sheath;
+            }
         }
         else
         {
@@ -2052,8 +2038,6 @@ void ObjectMgr::LoadItemPrototypes()
             if(proto->RequiredReputationRank == MIN_REPUTATION_RANK)
                 sLog.outErrorDb("Item (Entry: %u) has min. reputation rank in RequiredReputationRank (0) but RequiredReputationFaction > 0, faction setting is useless.",i);
         }
-        else if(proto->RequiredReputationRank > MIN_REPUTATION_RANK)
-            sLog.outErrorDb("Item (Entry: %u) has RequiredReputationFaction ==0 but RequiredReputationRank > 0, rank setting is useless.",i);
 
         if(proto->MaxCount < -1)
         {
@@ -2071,10 +2055,10 @@ void ObjectMgr::LoadItemPrototypes()
             sLog.outErrorDb("Item (Entry: %u) has too large negative in stackable (%i), replace by value (-1) no stacking limits.",i,proto->Stackable);
             const_cast<ItemPrototype*>(proto)->Stackable = -1;
         }
-        else if(proto->Stackable > 1000)
+        else if(proto->Stackable > 0x7FFF)
         {
             sLog.outErrorDb("Item (Entry: %u) has too large value in stackable (%u), replace by hardcoded upper limit (1000).",i,proto->Stackable);
-            const_cast<ItemPrototype*>(proto)->Stackable = 1000;
+            const_cast<ItemPrototype*>(proto)->Stackable = 0x7FFF;
         }
 
         if (proto->ContainerSlots)
@@ -2084,12 +2068,6 @@ void ObjectMgr::LoadItemPrototypes()
                 sLog.outErrorDb("Item (Entry: %u) has too large value in ContainerSlots (%u), replace by hardcoded limit (%u).",i,proto->ContainerSlots,MAX_BAG_SIZE);
                 const_cast<ItemPrototype*>(proto)->ContainerSlots = MAX_BAG_SIZE;
             }
-        }
-
-        if(proto->StatsCount > MAX_ITEM_PROTO_STATS)
-        {
-            sLog.outErrorDb("Item (Entry: %u) has too large value in statscount (%u), replace by hardcoded limit (%u).",i,proto->StatsCount,MAX_ITEM_PROTO_STATS);
-            const_cast<ItemPrototype*>(proto)->StatsCount = MAX_ITEM_PROTO_STATS;
         }
 
         for (int j = 0; j < MAX_ITEM_PROTO_STATS; ++j)
@@ -2112,13 +2090,10 @@ void ObjectMgr::LoadItemPrototypes()
             }
         }
 
-        for (int j = 0; j < MAX_ITEM_PROTO_DAMAGES; ++j)
+        if (proto->DamageType >= MAX_SPELL_SCHOOL)
         {
-            if(proto->Damage[j].DamageType >= MAX_SPELL_SCHOOL)
-            {
-                sLog.outErrorDb("Item (Entry: %u) has wrong dmg_type%d (%u)",i,j+1,proto->Damage[j].DamageType);
-                const_cast<ItemPrototype*>(proto)->Damage[j].DamageType = 0;
-            }
+            sLog.outErrorDb("Item (Entry: %u) has wrong damagetype (%u)", i, proto->DamageType);
+            const_cast<ItemPrototype*>(proto)->DamageType = 0;
         }
 
         // special format
@@ -2154,6 +2129,7 @@ void ObjectMgr::LoadItemPrototypes()
                 if(!spellInfo)
                 {
                     sLog.outErrorDb("Item (Entry: %u) has wrong (not existing) spell in spellid_%d (%u)",i,1+1,proto->Spells[1].SpellId);
+                    
                     const_cast<ItemPrototype*>(proto)->Spells[0].SpellId = 0;
                     const_cast<ItemPrototype*>(proto)->Spells[1].SpellId = 0;
                     const_cast<ItemPrototype*>(proto)->Spells[1].SpellTrigger = ITEM_SPELLTRIGGER_ON_USE;
@@ -2429,7 +2405,6 @@ void ObjectMgr::LoadItemPrototypes()
         sLog.outErrorDb("Item (Entry: %u) not exist in `item_template` but referenced in `CharStartOutfit.dbc`", *itr);
 }
 
-
 void ObjectMgr::LoadItemConverts()
 {
     m_ItemConvert.clear();                                  // needed for reload case
@@ -2700,7 +2675,7 @@ void ObjectMgr::LoadPetLevelInfo()
                     sLog.outErrorDb("Wrong (> %u) level %u in `pet_levelstats` table, ignoring.",STRONG_MAX_LEVEL,current_level);
                 else
                 {
-                    DETAIL_LOG("Unused (> MaxPlayerLevel in StrawberryWorld.conf) level %u in `pet_levelstats` table, ignoring.",current_level);
+                    DETAIL_LOG("Unused (> MaxPlayerLevel in strawberryworld.conf) level %u in `pet_levelstats` table, ignoring.",current_level);
                     ++count;                                // make result loading percent "expected" correct in case disabled detail mode for example.
                 }
                 continue;
@@ -3101,7 +3076,7 @@ void ObjectMgr::LoadPlayerInfo()
                     sLog.outErrorDb("Wrong (> %u) level %u in `player_classlevelstats` table, ignoring.",STRONG_MAX_LEVEL,current_level);
                 else
                 {
-                    DETAIL_LOG("Unused (> MaxPlayerLevel in StrawberryWorld.conf) level %u in `player_classlevelstats` table, ignoring.",current_level);
+                    DETAIL_LOG("Unused (> MaxPlayerLevel in strawberryworld.conf) level %u in `player_classlevelstats` table, ignoring.",current_level);
                     ++count;                                // make result loading percent "expected" correct in case disabled detail mode for example.
                 }
                 continue;
@@ -3204,7 +3179,7 @@ void ObjectMgr::LoadPlayerInfo()
                     sLog.outErrorDb("Wrong (> %u) level %u in `player_levelstats` table, ignoring.",STRONG_MAX_LEVEL,current_level);
                 else
                 {
-                    DETAIL_LOG("Unused (> MaxPlayerLevel in StrawberryWorld.conf) level %u in `player_levelstats` table, ignoring.",current_level);
+                    DETAIL_LOG("Unused (> MaxPlayerLevel in strawberryworld.conf) level %u in `player_levelstats` table, ignoring.",current_level);
                     ++count;                                // make result loading percent "expected" correct in case disabled detail mode for example.
                 }
                 continue;
@@ -3315,7 +3290,7 @@ void ObjectMgr::LoadPlayerInfo()
                     sLog.outErrorDb("Wrong (> %u) level %u in `player_xp_for_level` table, ignoring.", STRONG_MAX_LEVEL,current_level);
                 else
                 {
-                    DETAIL_LOG("Unused (> MaxPlayerLevel in StrawberryWorld.conf) level %u in `player_xp_for_levels` table, ignoring.",current_level);
+                    DETAIL_LOG("Unused (> MaxPlayerLevel in strawberryworld.conf) level %u in `player_xp_for_levels` table, ignoring.",current_level);
                     ++count;                                // make result loading percent "expected" correct in case disabled detail mode for example.
                 }
                 continue;
@@ -3453,7 +3428,7 @@ void ObjectMgr::LoadArenaTeams()
 
     //                                                     0                      1    2           3    4               5
     QueryResult *result = CharacterDatabase.Query( "SELECT arena_team.arenateamid,name,captainguid,type,BackgroundColor,EmblemStyle,"
-    //   6           7           8            9      10         11         12              13            14
+    //   6           7           8            9      10         11        12           13          14
         "EmblemColor,BorderStyle,BorderColor, rating,games_week,wins_week,games_season,wins_season,rank "
         "FROM arena_team LEFT JOIN arena_team_stats ON arena_team.arenateamid = arena_team_stats.arenateamid ORDER BY arena_team.arenateamid ASC" );
 
@@ -3684,45 +3659,57 @@ void ObjectMgr::LoadQuests()
 
     //                                                0      1       2           3         4           5     6                7              8              9
     QueryResult *result = WorldDatabase.Query("SELECT entry, Method, ZoneOrSort, MinLevel, QuestLevel, Type, RequiredClasses, RequiredRaces, RequiredSkill, RequiredSkillValue,"
-    //   10                   11                 12                     13                   14                     15                   16                17
-        "RepObjectiveFaction, RepObjectiveValue, RequiredMinRepFaction, RequiredMinRepValue, RequiredMaxRepFaction, RequiredMaxRepValue, SuggestedPlayers, LimitTime,"
-    //   18          19            20           21            22            23           24           25              26
-        "QuestFlags, SpecialFlags, CharTitleId, PlayersSlain, BonusTalents, PrevQuestId, NextQuestId, ExclusiveGroup, NextQuestInChain,"
-    //   27        28         29           30
+    //   10                   11                 12                     13                   14                     15                   16             17                18
+        "RepObjectiveFaction, RepObjectiveValue, RequiredMinRepFaction, RequiredMinRepValue, RequiredMaxRepFaction, RequiredMaxRepValue, RequiredSpell, SuggestedPlayers, LimitTime,"
+    //   19          20            21           22            23            24             25              26           27           28              29
+        "QuestFlags, SpecialFlags, CharTitleId, PlayersSlain, BonusTalents, PortraitGiver, PortraitTurnIn, PrevQuestId, NextQuestId, ExclusiveGroup, NextQuestInChain,"
+    //   30        31         32           33
         "RewXPId, SrcItemId, SrcItemCount, SrcSpell,"
-    //   31     32       33          34               35                36       37             38              39              40              41
-        "Title, Details, Objectives, OfferRewardText, RequestItemsText, EndText, CompletedText, ObjectiveText1, ObjectiveText2, ObjectiveText3, ObjectiveText4,"
-    //   42          43          44          45          46          47          48             49             50             51             52             53
+    //   34     35       36          37               38                39       40
+        "Title, Details, Objectives, OfferRewardText, RequestItemsText, EndText, CompletedText,"
+    //   41                 42                 43                  44                  45              46              47              48
+        "PortraitGiverText, PortraitGiverName, PortraitTurnInText, PortraitTurnInName, ObjectiveText1, ObjectiveText2, ObjectiveText3, ObjectiveText4,"
+    //   49          50          51          52          53          54          55             56             57             58             59             60
         "ReqItemId1, ReqItemId2, ReqItemId3, ReqItemId4, ReqItemId5, ReqItemId6, ReqItemCount1, ReqItemCount2, ReqItemCount3, ReqItemCount4, ReqItemCount5, ReqItemCount6,"
-    //   54            55            56            57            58               59               60               61
+    //   61            62            63            64            65               66               67               68
         "ReqSourceId1, ReqSourceId2, ReqSourceId3, ReqSourceId4, ReqSourceCount1, ReqSourceCount2, ReqSourceCount3, ReqSourceCount4,"
-    //   62                  63                  64                  65                  66                     67                     68                     69
+    //   69                  70                  71                  72                  73                     74                     75                     76
         "ReqCreatureOrGOId1, ReqCreatureOrGOId2, ReqCreatureOrGOId3, ReqCreatureOrGOId4, ReqCreatureOrGOCount1, ReqCreatureOrGOCount2, ReqCreatureOrGOCount3, ReqCreatureOrGOCount4,"
-    //   70             71             72             73
+    //   77             78             79             80
         "ReqSpellCast1, ReqSpellCast2, ReqSpellCast3, ReqSpellCast4,"
-    //   74                75                76                77                78                79
+    //   81                82                83                84                85                86
         "RewChoiceItemId1, RewChoiceItemId2, RewChoiceItemId3, RewChoiceItemId4, RewChoiceItemId5, RewChoiceItemId6,"
-    //   80                   81                   82                   83                   84                   85
+    //   87                   88                   89                   90                   91                   92
         "RewChoiceItemCount1, RewChoiceItemCount2, RewChoiceItemCount3, RewChoiceItemCount4, RewChoiceItemCount5, RewChoiceItemCount6,"
-    //   86          87          88          89          90             91             92             93
+    //   93          94          95          96          97             98             99             100
         "RewItemId1, RewItemId2, RewItemId3, RewItemId4, RewItemCount1, RewItemCount2, RewItemCount3, RewItemCount4,"
-    //   94              95              96              97              98
+    //   101             102             103             104             105
         "RewRepFaction1, RewRepFaction2, RewRepFaction3, RewRepFaction4, RewRepFaction5,"
-    //   99              100             101             102             103
+    //   106             107             108             109             110
         "RewRepValueId1, RewRepValueId2, RewRepValueId3, RewRepValueId4, RewRepValueId5,"
-    //   104           105           106           107           108
+    //   111           112           113           114           115
         "RewRepValue1, RewRepValue2, RewRepValue3, RewRepValue4, RewRepValue5,"
-    //   109               110                 111            112               113       114
+    //   116               117                 118            119               120       121
         "RewHonorAddition, RewHonorMultiplier, RewOrReqMoney, RewMoneyMaxLevel, RewSpell, RewSpellCast,"
-    //   115                116               117         118     119     120
+    //   122                123               124         125     126     127
         "RewMailTemplateId, RewMailDelaySecs, PointMapId, PointX, PointY, PointOpt,"
-    //   121            122            123            124            125                 126                 127                 128
+    //   128            129            130            131            132                 133                 134                 135
         "DetailsEmote1, DetailsEmote2, DetailsEmote3, DetailsEmote4, DetailsEmoteDelay1, DetailsEmoteDelay2, DetailsEmoteDelay3, DetailsEmoteDelay4,"
-    //   129              130            131                132                133                134
+    //   136              137            138                139                140                141
         "IncompleteEmote, CompleteEmote, OfferRewardEmote1, OfferRewardEmote2, OfferRewardEmote3, OfferRewardEmote4,"
-    //   135                     136                     137                     138
+    //   142                     143                     144                     145
         "OfferRewardEmoteDelay1, OfferRewardEmoteDelay2, OfferRewardEmoteDelay3, OfferRewardEmoteDelay4,"
-    //   139          140
+    //   146                147                148                149
+        "CurrencyRewardId1, CurrencyRewardId2, CurrencyRewardId3, CurrencyRewardId4,"
+    //   150                   151                   152                   153
+        "CurrencyRewardCount1, CurrencyRewardCount2, CurrencyRewardCount3, CurrencyRewardCount4,"
+    //   154                  155                  156                  157
+        "CurrencyRequiredId1, CurrencyRequiredId2, CurrencyRequiredId3, CurrencyRequiredId4,"
+    //   158                     159                     160                     161
+        "CurrencyRequiredCount1, CurrencyRequiredCount2, CurrencyRequiredCount3, CurrencyRequiredCount4,"
+    //   162          163
+        "SoundAccept, SoundTurnIn,"
+    //   164          165
         "StartScript, CompleteScript"
         " FROM quest_template");
     if (!result)
@@ -3745,7 +3732,7 @@ void ObjectMgr::LoadQuests()
         bar.step();
         Field *fields = result->Fetch();
 
-        Quest * newQuest = new Quest(fields);
+        Quest* newQuest = new Quest(fields);
         mQuestTemplates[newQuest->GetQuestId()] = newQuest;
     } while( result->NextRow() );
 
@@ -4776,7 +4763,7 @@ void ObjectMgr::LoadWorldTemplate()
     SQLWorldLoader loader;
     loader.Load(sWorldTemplate, false);
 
-    for(uint32 i = 0; i < sWorldTemplate.MaxEntry; i++)
+    for (uint32 i = 0; i < sWorldTemplate.MaxEntry; ++i)
     {
         WorldTemplate const* temp = GetWorldTemplate(i);
         if (!temp)
@@ -4798,7 +4785,30 @@ void ObjectMgr::LoadWorldTemplate()
         }
     }
 
-    sLog.outString( ">> Loaded %u World Template definitions", sWorldTemplate.RecordCount );
+    sLog.outString( ">> Loaded %u World Template definitions", sWorldTemplate.RecordCount);
+    sLog.outString();
+}
+
+void ObjectMgr::LoadConditions()
+{
+    SQLWorldLoader loader;
+    loader.Load(sConditionStorage, false);
+
+    for (uint32 i = 0; i < sConditionStorage.MaxEntry; ++i)
+    {
+        const PlayerCondition* condition = sConditionStorage.LookupEntry<PlayerCondition>(i);
+        if (!condition)
+            continue;
+
+        if (!condition->IsValid())
+        {
+            sLog.outErrorDb("ObjectMgr::LoadConditions: invalid condition_entry %u, skip", i);
+            sConditionStorage.EraseEntry(i);
+            continue;
+        }
+    }
+
+    sLog.outString( ">> Loaded %u Condition definitions", sConditionStorage.RecordCount);
     sLog.outString();
 }
 
@@ -5718,14 +5728,14 @@ void ObjectMgr::PackGroupIds()
 
 void ObjectMgr::SetHighestGuids()
 {
-    QueryResult *result = CharacterDatabase.Query( "SELECT MAX(guid) FROM characters" );
+    QueryResult *result = CharacterDatabase.Query("SELECT MAX(guid) FROM characters");
     if( result )
     {
         m_CharGuids.Set((*result)[0].GetUInt32()+1);
         delete result;
     }
 
-    result = WorldDatabase.Query( "SELECT MAX(guid) FROM creature" );
+    result = WorldDatabase.Query("SELECT MAX(guid) FROM creature");
     if( result )
     {
         m_FirstTemporaryCreatureGuid = (*result)[0].GetUInt32()+1;
@@ -6712,6 +6722,50 @@ void ObjectMgr::LoadQuestPOI()
     sLog.outString(">> Loaded %u quest POI definitions", count);
 }
 
+void ObjectMgr::LoadQuestPhaseMaps()
+{
+    mQuestPhaseMap.clear();                              // need for reload case
+
+    uint32 count = 0;
+
+    //                                                0        1 
+    QueryResult *result = WorldDatabase.Query("SELECT questId, map, phase FROM quest_phase_maps");
+
+    if (!result)
+    {
+        BarGoLink bar(1);
+
+        bar.step();
+
+        sLog.outString();
+        sLog.outErrorDb(">> Loaded 0 quest phase maps definitions. DB table `quest_phase_maps` is empty.");
+        return;
+    }
+
+    BarGoLink bar(result->GetRowCount());
+
+    do
+    {
+        Field *fields = result->Fetch();
+        bar.step();
+
+        uint32 questId          = fields[0].GetUInt32();
+        uint16 mapId            = fields[1].GetUInt16();
+        uint32 phase            = fields[2].GetUInt32();
+
+        QuestPhaseMaps QuestPhase(mapId, phase);
+
+        mQuestPhaseMap[questId].push_back(QuestPhase);
+
+        ++count;
+    } while (result->NextRow());
+
+    delete result;
+
+    sLog.outString();
+    sLog.outString(">> Loaded %u quest phase maps definitions", count);
+}
+
 void ObjectMgr::LoadNPCSpellClickSpells()
 {
     uint32 count = 0;
@@ -6800,6 +6854,59 @@ void ObjectMgr::LoadNPCSpellClickSpells()
 
     sLog.outString();
     sLog.outString(">> Loaded %u spellclick definitions", count);
+}
+
+static char* SERVER_SIDE_SPELL      = "MaNGOS server-side spell";
+
+struct SQLSpellLoader : public SQLStorageLoaderBase<SQLSpellLoader>
+{
+    template<class S, class D>
+    void default_fill(uint32 field_pos, S src, D &dst)
+    {
+        if (field_pos == 65)                                // EquippedItemClass
+            dst = D(-1);
+        else
+            dst = D(src);
+    }
+
+    void default_fill_to_str(uint32 field_pos, char const* /*src*/, char * & dst)
+    {
+        if (field_pos == 132)                               // SpellName[0]
+        {
+            dst = SERVER_SIDE_SPELL;
+        }
+        else
+        {
+            dst = new char[1];
+            *dst = 0;
+        }
+    }
+};
+
+void ObjectMgr::LoadSpellTemplate()
+{
+    SQLSpellLoader loader;
+    loader.Load(sSpellTemplate);
+
+    sLog.outString(">> Loaded %u spell definitions", sSpellTemplate.RecordCount);
+    sLog.outString();
+
+    for (uint32 i = 1; i < sSpellTemplate.MaxEntry; ++i)
+    {
+        // check data correctness
+        SpellEntry const* spellEntry = sSpellTemplate.LookupEntry<SpellEntry>(i);
+        if (!spellEntry)
+            continue;
+
+        // insert serverside spell data
+        if (sSpellStore.GetNumRows() <= i)
+        {
+            sLog.outErrorDb("Loading Spell Template for spell %u, index out of bounds (max = %)", i, sSpellStore.GetNumRows());
+            continue;
+        }
+        else
+            sSpellStore.InsertEntry(const_cast<SpellEntry*>(spellEntry), i);
+    }
 }
 
 void ObjectMgr::LoadWeatherZoneChances()
@@ -7418,7 +7525,7 @@ bool ObjectMgr::LoadStrawberryStrings(DatabaseType& db, char const* table, int32
 
     sLog.outString();
     if (min_value == MIN_STRAWBERRY_STRING_ID)
-        sLog.outString( ">> Loaded %u MaNGOS strings from table %s", count,table);
+        sLog.outString( ">> Loaded %u Strawberry strings from table %s", count,table);
     else
         sLog.outString( ">> Loaded %u string templates from %s", count,table);
 
@@ -7498,7 +7605,7 @@ void ObjectMgr::LoadFishingBaseSkillLevel()
 // Returns Id if found, else adds it to Conditions and returns Id
 uint16 ObjectMgr::GetConditionId( ConditionType condition, uint32 value1, uint32 value2 )
 {
-    PlayerCondition lc = PlayerCondition(condition, value1, value2);
+    PlayerCondition lc = PlayerCondition(0, condition, value1, value2);
     for (uint16 i=0; i < mConditions.size(); ++i)
     {
         if (lc == mConditions[i])
@@ -7533,115 +7640,121 @@ bool ObjectMgr::CheckDeclinedNames( std::wstring mainpart, DeclinedName const& n
 // Checks if player meets the condition
 bool PlayerCondition::Meets(Player const * player) const
 {
-    if( !player )
+    if (!player)
         return false;                                       // player not present, return false
 
-    switch (condition)
+    switch (m_condition)
     {
+        case CONDITION_OR:
+            // Checked on load
+            return sConditionStorage.LookupEntry<PlayerCondition>(m_value1)->Meets(player) || sConditionStorage.LookupEntry<PlayerCondition>(m_value2)->Meets(player);
+        case CONDITION_AND:
+            // Checked on load
+            return sConditionStorage.LookupEntry<PlayerCondition>(m_value1)->Meets(player) && sConditionStorage.LookupEntry<PlayerCondition>(m_value2)->Meets(player);
         case CONDITION_NONE:
             return true;                                    // empty condition, always met
         case CONDITION_AURA:
-            return player->HasAura(value1, SpellEffectIndex(value2));
+            return player->HasAura(m_value1, SpellEffectIndex(m_value2));
         case CONDITION_ITEM:
-            return player->HasItemCount(value1, value2);
+            return player->HasItemCount(m_value1, m_value2);
         case CONDITION_ITEM_EQUIPPED:
-            return player->HasItemOrGemWithIdEquipped(value1,1);
+            return player->HasItemOrGemWithIdEquipped(m_value1,1);
         case CONDITION_AREAID:
         {
             uint32 zone, area;
             player->GetZoneAndAreaId(zone,area);
-            return (zone == value1 || area == value1) == (value2 == 0);
+            return (zone == m_value1 || area == m_value1) == (m_value2 == 0);
         }
-        case CONDITION_REPUTATION_RANK:
+        case CONDITION_REPUTATION_RANK_MIN:
         {
-            FactionEntry const* faction = sFactionStore.LookupEntry(value1);
-            return faction && player->GetReputationMgr().GetRank(faction) >= ReputationRank(value2);
+            FactionEntry const* faction = sFactionStore.LookupEntry(m_value1);
+            return faction && player->GetReputationMgr().GetRank(faction) >= ReputationRank(m_value2);
         }
         case CONDITION_TEAM:
-            return uint32(player->GetTeam()) == value1;
+            return uint32(player->GetTeam()) == m_value1;
         case CONDITION_SKILL:
-            return player->HasSkill(value1) && player->GetBaseSkillValue(value1) >= value2;
+            return player->HasSkill(m_value1) && player->GetBaseSkillValue(m_value1) >= m_value2;
         case CONDITION_QUESTREWARDED:
-            return player->GetQuestRewardStatus(value1);
+            return player->GetQuestRewardStatus(m_value1);
         case CONDITION_QUESTTAKEN:
         {
-            return player->IsCurrentQuest(value1, value2);
+            return player->IsCurrentQuest(m_value1, m_value2);
         }
         case CONDITION_AD_COMMISSION_AURA:
         {
             Unit::SpellAuraHolderMap const& auras = player->GetSpellAuraHolderMap();
             for (Unit::SpellAuraHolderMap::const_iterator itr = auras.begin(); itr != auras.end(); ++itr)
-                if ((itr->second->GetSpellProto()->Attributes & 0x1000010) && itr->second->GetSpellProto()->SpellVisual[0]==3580)
+                if ((itr->second->GetSpellProto()->HasAttribute(SPELL_ATTR_CASTABLE_WHILE_MOUNTED) || itr->second->GetSpellProto()->HasAttribute(SPELL_ATTR_UNK4)) && itr->second->GetSpellProto()->SpellVisual[0]==3580)
                     return true;
             return false;
         }
         case CONDITION_NO_AURA:
-            return !player->HasAura(value1, SpellEffectIndex(value2));
+            return !player->HasAura(m_value1, SpellEffectIndex(m_value2));
         case CONDITION_ACTIVE_GAME_EVENT:
-            return sGameEventMgr.IsActiveEvent(value1);
+            return sGameEventMgr.IsActiveEvent(m_value1);
         case CONDITION_AREA_FLAG:
         {
             if (AreaTableEntry const *pAreaEntry = GetAreaEntryByAreaID(player->GetAreaId()))
             {
-                if ((!value1 || (pAreaEntry->flags & value1)) && (!value2 || !(pAreaEntry->flags & value2)))
+                if ((!m_value1 || (pAreaEntry->flags & m_value1)) && (!m_value2 || !(pAreaEntry->flags & m_value2)))
                     return true;
             }
             return false;
         }
         case CONDITION_RACE_CLASS:
-            if ((!value1 || (player->getRaceMask() & value1)) && (!value2 || (player->getClassMask() & value2)))
+            if ((!m_value1 || (player->getRaceMask() & m_value1)) && (!m_value2 || (player->getClassMask() & m_value2)))
                 return true;
             return false;
         case CONDITION_LEVEL:
         {
-            switch(value2)
+            switch(m_value2)
             {
-                case 0: return player->getLevel() == value1;
-                case 1: return player->getLevel() >= value1;
-                case 2: return player->getLevel() <= value1;
+                case 0: return player->getLevel() == m_value1;
+                case 1: return player->getLevel() >= m_value1;
+                case 2: return player->getLevel() <= m_value1;
             }
             return false;
         }
         case CONDITION_NOITEM:
-            return !player->HasItemCount(value1, value2);
+            return !player->HasItemCount(m_value1, m_value2);
         case CONDITION_SPELL:
         {
-            switch(value2)
+            switch(m_value2)
             {
-                case 0: return player->HasSpell(value1);
-                case 1: return !player->HasSpell(value1);
+                case 0: return player->HasSpell(m_value1);
+                case 1: return !player->HasSpell(m_value1);
             }
             return false;
         }
         case CONDITION_INSTANCE_SCRIPT:
         {
             // have meaning only for specific map instance script so ignore other maps
-            if (player->GetMapId() != value1)
+            if (player->GetMapId() != m_value1)
                 return false;
             if (InstanceData* data = player->GetInstanceData())
-                return data->CheckConditionCriteriaMeet(player, value1, value2);
+                return data->CheckConditionCriteriaMeet(player, m_value1, m_value2);
             return false;
         }
         case CONDITION_QUESTAVAILABLE:
         {
-            if (Quest const* quest = sObjectMgr.GetQuestTemplate(value1))
+            if (Quest const* quest = sObjectMgr.GetQuestTemplate(m_value1))
                 return player->CanTakeQuest(quest, false);
             else
                 return false;
         }
         case CONDITION_ACHIEVEMENT:
         {
-            switch(value2)
+            switch(m_value2)
             {
-                case 0: return player->GetAchievementMgr().HasAchievement(value1);
-                case 1: return !player->GetAchievementMgr().HasAchievement(value1);
+                case 0: return player->GetAchievementMgr().HasAchievement(m_value1);
+                case 1: return !player->GetAchievementMgr().HasAchievement(m_value1);
             }
             return false;
         }
         case CONDITION_ACHIEVEMENT_REALM:
         {
-            AchievementEntry const* ach = sAchievementStore.LookupEntry(value1);
-            switch(value2)
+            AchievementEntry const* ach = sAchievementStore.LookupEntry(m_value1);
+            switch(m_value2)
             {
                 case 0: return sAchievementMgr.IsRealmCompleted(ach);
                 case 1: return !sAchievementMgr.IsRealmCompleted(ach);
@@ -7650,39 +7763,39 @@ bool PlayerCondition::Meets(Player const * player) const
         }
         case CONDITION_QUEST_NONE:
         {
-            if (!player->IsCurrentQuest(value1) && !player->GetQuestRewardStatus(value1))
+            if (!player->IsCurrentQuest(m_value1) && !player->GetQuestRewardStatus(m_value1))
                 return true;
             return false;
         }
         case CONDITION_ITEM_WITH_BANK:
-            return player->HasItemCount(value1, value2, true);
+            return player->HasItemCount(m_value1, m_value2, true);
         case CONDITION_NOITEM_WITH_BANK:
-            return !player->HasItemCount(value1, value2, true);
+            return !player->HasItemCount(m_value1, m_value2, true);
         case CONDITION_NOT_ACTIVE_GAME_EVENT:
-            return !sGameEventMgr.IsActiveEvent(value1);
+            return !sGameEventMgr.IsActiveEvent(m_value1);
         case CONDITION_ACTIVE_HOLIDAY:
-            return sGameEventMgr.IsActiveHoliday(HolidayIds(value1));
+            return sGameEventMgr.IsActiveHoliday(HolidayIds(m_value1));
         case CONDITION_NOT_ACTIVE_HOLIDAY:
-            return !sGameEventMgr.IsActiveHoliday(HolidayIds(value1));
+            return !sGameEventMgr.IsActiveHoliday(HolidayIds(m_value1));
         case CONDITION_LEARNABLE_ABILITY:
         {
             // Already know the spell
-            if (player->HasSpell(value1))
+            if (player->HasSpell(m_value1))
                 return false;
 
             // If item defined, check if player has the item already.
-            if (value2)
+            if (m_value2)
             {
                 // Hard coded item count. This should be ok, since the intention with this condition is to have
                 // a all-in-one check regarding items that learn some ability (primary/secondary tradeskills).
                 // Commonly, items like this is unique and/or are not expected to be obtained more than once.
-                if (player->HasItemCount(value2, 1, true))
+                if (player->HasItemCount(m_value2, 1, true))
                     return false;
             }
 
             bool isSkillOk = false;
 
-            SkillLineAbilityMapBounds bounds = sSpellMgr.GetSkillLineAbilityMapBounds(value1);
+            SkillLineAbilityMapBounds bounds = sSpellMgr.GetSkillLineAbilityMapBounds(m_value1);
 
             for(SkillLineAbilityMap::const_iterator itr = bounds.first; itr != bounds.second; ++itr)
             {
@@ -7717,31 +7830,62 @@ bool PlayerCondition::Meets(Player const * player) const
             return false;
         }
         case CONDITION_SKILL_BELOW:
-            if (value2 == 1)
-                return !player->HasSkill(value1);
+            if (m_value2 == 1)
+                return !player->HasSkill(m_value1);
             else
-                return player->HasSkill(value1) && player->GetBaseSkillValue(value1) < value2;
+                return player->HasSkill(m_value1) && player->GetBaseSkillValue(m_value1) < m_value2;
+        case CONDITION_REPUTATION_RANK_MAX:
+        {
+            FactionEntry const* faction = sFactionStore.LookupEntry(m_value1);
+            return faction && player->GetReputationMgr().GetRank(faction) <= ReputationRank(m_value2);
+        }
         default:
             return false;
     }
 }
 
 // Verification of condition values validity
-bool PlayerCondition::IsValid(ConditionType condition, uint32 value1, uint32 value2)
+bool PlayerCondition::IsValid(uint16 entry, ConditionType condition, uint32 value1, uint32 value2)
 {
-    switch(condition)
+    switch (condition)
     {
+        case CONDITION_OR:
+        case CONDITION_AND:
+        {
+            if (value1 >= entry)
+            {
+                sLog.outErrorDb("And or Or condition (entry %u, type %d) has invalid value1 %u, must be lower than entry, skipped", entry, condition, value1);
+                return false;
+            }
+            if (value2 >= entry)
+            {
+                sLog.outErrorDb("And or Or condition (entry %u, type %d) has invalid value2 %u, must be lower than entry, skipped", entry, condition, value2);
+                return false;
+            }
+            const PlayerCondition* condition1 = sConditionStorage.LookupEntry<PlayerCondition>(value1);
+            if (!condition1)
+            {
+                sLog.outErrorDb("And or Or condition (entry %u, type %d) has value1 %u without proper condition, skipped", entry, condition, value1);
+                return false;
+            }
+            const PlayerCondition* condition2 = sConditionStorage.LookupEntry<PlayerCondition>(value2);
+            if (!condition2)
+            {
+                sLog.outErrorDb("And or Or condition (entry %u, type %d) has value2 %u without proper condition, skipped", entry, condition, value2);
+                return false;
+            }
+            break;
+        }
         case CONDITION_AURA:
         {
             if (!sSpellStore.LookupEntry(value1))
             {
-                sLog.outErrorDb("Aura condition (%u) requires to have non existing spell (Id: %d), skipped", condition, value1);
+                sLog.outErrorDb("Aura condition (entry %u, type %u) requires to have non existing spell (Id: %d), skipped", entry, condition, value1);
                 return false;
             }
             if (value2 >= MAX_EFFECT_INDEX)
             {
-                sLog.outErrorDb("Aura condition (%u) requires to have non existing effect index (%u) (must be 0..%u), skipped",
-                    condition, value2, MAX_EFFECT_INDEX-1);
+                sLog.outErrorDb("Aura condition (entry %u, type %u) requires to have non existing effect index (%u) (must be 0..%u), skipped", entry, condition, value2, MAX_EFFECT_INDEX-1);
                 return false;
             }
             break;
@@ -7754,13 +7898,13 @@ bool PlayerCondition::IsValid(ConditionType condition, uint32 value1, uint32 val
             ItemPrototype const *proto = ObjectMgr::GetItemPrototype(value1);
             if (!proto)
             {
-                sLog.outErrorDb("Item condition (%u) requires to have non existing item (%u), skipped", condition, value1);
+                sLog.outErrorDb("Item condition (entry %u, type %u) requires to have non existing item (%u), skipped", entry, condition, value1);
                 return false;
             }
 
             if (value2 < 1)
             {
-                sLog.outErrorDb("Item condition (%u) useless with count < 1, skipped", condition);
+                sLog.outErrorDb("Item condition (entry %u, type %u) useless with count < 1, skipped", entry, condition);
                 return false;
             }
             break;
@@ -7770,7 +7914,7 @@ bool PlayerCondition::IsValid(ConditionType condition, uint32 value1, uint32 val
             ItemPrototype const *proto = ObjectMgr::GetItemPrototype(value1);
             if (!proto)
             {
-                sLog.outErrorDb("ItemEquipped condition (%u) requires to have non existing item (%u) equipped, skipped", condition, value1);
+                sLog.outErrorDb("ItemEquipped condition (entry %u, type %u) requires to have non existing item (%u) equipped, skipped", entry, condition, value1);
                 return false;
             }
             break;
@@ -7780,23 +7924,30 @@ bool PlayerCondition::IsValid(ConditionType condition, uint32 value1, uint32 val
             AreaTableEntry const* areaEntry = GetAreaEntryByAreaID(value1);
             if (!areaEntry)
             {
-                sLog.outErrorDb("Zone condition (%u) requires to be in non existing area (%u), skipped", condition, value1);
+                sLog.outErrorDb("Zone condition (entry %u, type %u) requires to be in non existing area (%u), skipped", entry, condition, value1);
                 return false;
             }
 
             if (value2 > 1)
             {
-                sLog.outErrorDb("Zone condition (%u) has invalid argument %u (must be 0..1), skipped", condition, value2);
+                sLog.outErrorDb("Zone condition (entry %u, type %u) has invalid argument %u (must be 0..1), skipped", entry, condition, value2);
                 return false;
             }
             break;
         }
-        case CONDITION_REPUTATION_RANK:
+        case CONDITION_REPUTATION_RANK_MIN:
+        case CONDITION_REPUTATION_RANK_MAX:
         {
             FactionEntry const* factionEntry = sFactionStore.LookupEntry(value1);
             if (!factionEntry)
             {
-                sLog.outErrorDb("Reputation condition (%u) requires to have reputation non existing faction (%u), skipped", condition, value1);
+                sLog.outErrorDb("Reputation condition (entry %u, type %u) requires to have reputation non existing faction (%u), skipped", entry, condition, value1);
+                return false;
+            }
+
+            if (value2 >= MAX_REPUTATION_RANK)
+            {
+                sLog.outErrorDb("Reputation condition (entry %u, type %u) has invalid rank requirement (value2 = %u) - must be between %u and %u, skipped", entry, condition, value2, MIN_REPUTATION_RANK, MAX_REPUTATION_RANK-1);
                 return false;
             }
             break;
@@ -7805,7 +7956,7 @@ bool PlayerCondition::IsValid(ConditionType condition, uint32 value1, uint32 val
         {
             if (value1 != ALLIANCE && value1 != HORDE)
             {
-                sLog.outErrorDb("Team condition (%u) specifies unknown team (%u), skipped", condition, value1);
+                sLog.outErrorDb("Team condition (entry %u, type %u) specifies unknown team (%u), skipped", entry, condition, value1);
                 return false;
             }
             break;
@@ -7816,12 +7967,12 @@ bool PlayerCondition::IsValid(ConditionType condition, uint32 value1, uint32 val
             SkillLineEntry const *pSkill = sSkillLineStore.LookupEntry(value1);
             if (!pSkill)
             {
-                sLog.outErrorDb("Skill condition (%u) specifies non-existing skill (%u), skipped", condition, value1);
+                sLog.outErrorDb("Skill condition (entry %u, type %u) specifies non-existing skill (%u), skipped", entry, condition, value1);
                 return false;
             }
             if (value2 < 1 || value2 > sWorld.GetConfigMaxSkillValue() )
             {
-                sLog.outErrorDb("Skill condition (%u) specifies invalid skill value (%u), skipped", condition, value2);
+                sLog.outErrorDb("Skill condition (entry %u, type %u) specifies invalid skill value (%u), skipped", entry, condition, value2);
                 return false;
             }
             break;
@@ -7834,32 +7985,32 @@ bool PlayerCondition::IsValid(ConditionType condition, uint32 value1, uint32 val
             Quest const *Quest = sObjectMgr.GetQuestTemplate(value1);
             if (!Quest)
             {
-                sLog.outErrorDb("Quest condition (%u) specifies non-existing quest (%u), skipped", condition, value1);
+                sLog.outErrorDb("Quest condition (entry %u, type %u) specifies non-existing quest (%u), skipped", entry, condition, value1);
                 return false;
             }
 
             if (value2 && condition != CONDITION_QUESTTAKEN)
-                sLog.outErrorDb("Quest condition (%u) has useless data in value2 (%u)!", condition, value2);
+                sLog.outErrorDb("Quest condition (entry %u, type %u) has useless data in value2 (%u)!", entry, condition, value2);
             break;
         }
         case CONDITION_AD_COMMISSION_AURA:
         {
             if (value1)
-                sLog.outErrorDb("Quest condition (%u) has useless data in value1 (%u)!", condition, value1);
+                sLog.outErrorDb("Quest condition (entry %u, type %u) has useless data in value1 (%u)!", entry, condition, value1);
             if (value2)
-                sLog.outErrorDb("Quest condition (%u) has useless data in value2 (%u)!", condition, value2);
+                sLog.outErrorDb("Quest condition (entry %u, type %u) has useless data in value2 (%u)!", entry, condition, value2);
             break;
         }
         case CONDITION_NO_AURA:
         {
             if (!sSpellStore.LookupEntry(value1))
             {
-                sLog.outErrorDb("Aura condition (%u) requires to have non existing spell (Id: %d), skipped", condition, value1);
+                sLog.outErrorDb("Aura condition (entry %u, type %u) requires to have non existing spell (Id: %d), skipped", entry, condition, value1);
                 return false;
             }
             if (value2 > MAX_EFFECT_INDEX)
             {
-                sLog.outErrorDb("Aura condition (%u) requires to have non existing effect index (%u) (must be 0..%u), skipped", condition, value2, MAX_EFFECT_INDEX-1);
+                sLog.outErrorDb("Aura condition (entry %u, type %u) requires to have non existing effect index (%u) (must be 0..%u), skipped", entry, condition, value2, MAX_EFFECT_INDEX-1);
                 return false;
             }
             break;
@@ -7869,7 +8020,7 @@ bool PlayerCondition::IsValid(ConditionType condition, uint32 value1, uint32 val
         {
             if (!sGameEventMgr.IsValidEvent(value1))
             {
-                sLog.outErrorDb("Active event (%u) condition requires existing event id (%u), skipped", condition, value1);
+                sLog.outErrorDb("(Not)Active event condition (entry %u, type %u) requires existing event id (%u), skipped", entry, condition, value1);
                 return false;
             }
             break;
@@ -7878,7 +8029,7 @@ bool PlayerCondition::IsValid(ConditionType condition, uint32 value1, uint32 val
         {
             if (!value1 && !value2)
             {
-                sLog.outErrorDb("Area flag (%u) condition has both values like 0, skipped", condition);
+                sLog.outErrorDb("Area flag condition (entry %u, type %u) has both values like 0, skipped", entry, condition);
                 return false;
             }
             break;
@@ -7887,19 +8038,19 @@ bool PlayerCondition::IsValid(ConditionType condition, uint32 value1, uint32 val
         {
             if (!value1 && !value2)
             {
-                sLog.outErrorDb("Race_class condition (%u) has both values like 0, skipped", condition);
+                sLog.outErrorDb("Race_class condition (entry %u, type %u) has both values like 0, skipped", entry, condition);
                 return false;
             }
 
             if (value1 && !(value1 & RACEMASK_ALL_PLAYABLE))
             {
-                sLog.outErrorDb("Race_class condition (%u) has invalid player class %u, skipped", condition, value1);
+                sLog.outErrorDb("Race_class condition (entry %u, type %u) has invalid player class %u, skipped", entry, condition, value1);
                 return false;
             }
 
             if (value2 && !(value2 & CLASSMASK_ALL_PLAYABLE))
             {
-                sLog.outErrorDb("Race_class condition (%u) has invalid race mask %u, skipped", condition, value2);
+                sLog.outErrorDb("Race_class condition (entry %u, type %u) has invalid race mask %u, skipped", entry, condition, value2);
                 return false;
             }
             break;
@@ -7908,13 +8059,13 @@ bool PlayerCondition::IsValid(ConditionType condition, uint32 value1, uint32 val
         {
             if (!value1 || value1 > sWorld.getConfig(CONFIG_UINT32_MAX_PLAYER_LEVEL))
             {
-                sLog.outErrorDb("Level condition (%u) has invalid level %u, skipped", condition, value1);
+                sLog.outErrorDb("Level condition (entry %u, type %u)has invalid level %u, skipped", entry, condition, value1);
                 return false;
             }
 
             if (value2 > 2)
             {
-                sLog.outErrorDb("Level condition (%u) has invalid argument %u (must be 0..2), skipped", condition, value2);
+                sLog.outErrorDb("Level condition (entry %u, type %u) has invalid argument %u (must be 0..2), skipped", entry, condition, value2);
                 return false;
             }
 
@@ -7924,13 +8075,13 @@ bool PlayerCondition::IsValid(ConditionType condition, uint32 value1, uint32 val
         {
             if (!sSpellStore.LookupEntry(value1))
             {
-                sLog.outErrorDb("Spell condition (%u) requires to have non existing spell (Id: %d), skipped", condition, value1);
+                sLog.outErrorDb("Spell condition (entry %u, type %u) requires to have non existing spell (Id: %d), skipped", entry, condition, value1);
                 return false;
             }
 
             if (value2 > 1)
             {
-                sLog.outErrorDb("Spell condition (%u) has invalid argument %u (must be 0..1), skipped", condition, value2);
+                sLog.outErrorDb("Spell condition (entry %u, type %u) has invalid argument %u (must be 0..1), skipped", entry, condition, value2);
                 return false;
             }
 
@@ -7941,7 +8092,7 @@ bool PlayerCondition::IsValid(ConditionType condition, uint32 value1, uint32 val
             MapEntry const* mapEntry = sMapStore.LookupEntry(value1);
             if (!mapEntry || !mapEntry->IsDungeon())
             {
-                sLog.outErrorDb("Instance script condition (%u) has nonexistent map id %u as first arg, skipped", condition, value1);
+                sLog.outErrorDb("Instance script condition (entry %u, type %u) has nonexistent map id %u as first arg, skipped", entry, condition, value1);
                 return false;
             }
 
@@ -7952,13 +8103,13 @@ bool PlayerCondition::IsValid(ConditionType condition, uint32 value1, uint32 val
         {
             if (!sAchievementStore.LookupEntry(value1))
             {
-                sLog.outErrorDb("Achievement condition (%u) requires to have non existing achievement (Id: %d), skipped", condition, value1);
+                sLog.outErrorDb("Achievement condition (entry %u, type %u) requires to have non existing achievement (Id: %d), skipped", entry, condition, value1);
                 return false;
             }
 
             if (value2 > 1)
             {
-                sLog.outErrorDb("Achievement condition (%u) has invalid argument %u (must be 0..1), skipped", condition, value2);
+                sLog.outErrorDb("Achievement condition (entry %u, type %u) has invalid argument %u (must be 0..1), skipped", entry, condition, value2);
                 return false;
             }
 
@@ -7969,7 +8120,7 @@ bool PlayerCondition::IsValid(ConditionType condition, uint32 value1, uint32 val
         {
             if (!sHolidaysStore.LookupEntry(value1))
             {
-                sLog.outErrorDb("Active holiday (%u) condition requires existing holiday id (%u), skipped", condition, value1);
+                sLog.outErrorDb("(Not)Active holiday condition (entry %u, type %u) requires existing holiday id (%u), skipped", entry, condition, value1);
                 return false;
             }
             break;
@@ -7980,7 +8131,7 @@ bool PlayerCondition::IsValid(ConditionType condition, uint32 value1, uint32 val
 
             if (bounds.first == bounds.second)
             {
-                sLog.outErrorDb("CONDITION_LEARNABLE_ABILITY (%u) has spell id %u defined, but this spell is not listed in SkillLineAbility and can not be used, skipping.", condition, value1);
+                sLog.outErrorDb("Learnable ability conditon (entry %u, type %u) has spell id %u defined, but this spell is not listed in SkillLineAbility and can not be used, skipping.", entry, condition, value1);
                 return false;
             }
 
@@ -7989,7 +8140,7 @@ bool PlayerCondition::IsValid(ConditionType condition, uint32 value1, uint32 val
                 ItemPrototype const *proto = ObjectMgr::GetItemPrototype(value2);
                 if (!proto)
                 {
-                    sLog.outErrorDb("CONDITION_LEARNABLE_ABILITY (%u) has item entry %u defined but item does not exist, skipping.", condition, value2);
+                    sLog.outErrorDb("Learnable ability conditon (entry %u, type %u) has item entry %u defined but item does not exist, skipping.", entry, condition, value2);
                     return false;
                 }
             }
@@ -7999,7 +8150,7 @@ bool PlayerCondition::IsValid(ConditionType condition, uint32 value1, uint32 val
         case CONDITION_NONE:
             break;
         default:
-            sLog.outErrorDb("Condition has bad type of %u, skipped ", condition);
+            sLog.outErrorDb("Condition entry %u has bad type of %d, skipped ", entry, condition);
             return false;
     }
     return true;
@@ -8569,8 +8720,8 @@ void ObjectMgr::LoadGossipMenu(std::set<uint32>& gossipScriptSet)
     m_mGossipMenusMap.clear();
     //                                                0      1        2
     QueryResult* result = WorldDatabase.Query("SELECT entry, text_id, script_id, "
-    //   3       4             5             6       7             8
-        "cond_1, cond_1_val_1, cond_1_val_2, cond_2, cond_2_val_1, cond_2_val_2 FROM gossip_menu");
+    //   3       4             5             6       7             8            9
+        "cond_1, cond_1_val_1, cond_1_val_2, cond_2, cond_2_val_1, cond_2_val_2, condition_id FROM gossip_menu");
 
     if (!result)
     {
@@ -8606,6 +8757,8 @@ void ObjectMgr::LoadGossipMenu(std::set<uint32>& gossipScriptSet)
         uint32 cond_2_val_1     = fields[7].GetUInt32();
         uint32 cond_2_val_2     = fields[8].GetUInt32();
 
+        gMenu.conditionId       = fields[9].GetUInt16();
+
         if (!GetGossipText(gMenu.text_id))
         {
             sLog.outErrorDb("Table gossip_menu entry %u are using non-existing text_id %u", gMenu.entry, gMenu.text_id);
@@ -8615,7 +8768,7 @@ void ObjectMgr::LoadGossipMenu(std::set<uint32>& gossipScriptSet)
         // Check script-id
         if (gMenu.script_id)
         {
-            if (sGossipScripts.find(gMenu.script_id) == sGossipScripts.end())
+            if (sGossipScripts.second.find(gMenu.script_id) == sGossipScripts.second.end())
             {
                 sLog.outErrorDb("Table gossip_menu for menu %u, text-id %u have script_id %u that does not exist in `gossip_scripts`, ignoring", gMenu.entry, gMenu.text_id, gMenu.script_id);
                 continue;
@@ -8625,13 +8778,13 @@ void ObjectMgr::LoadGossipMenu(std::set<uint32>& gossipScriptSet)
             gossipScriptSet.erase(gMenu.script_id);
         }
 
-        if (!PlayerCondition::IsValid(cond_1, cond_1_val_1, cond_1_val_2))
+        if (!PlayerCondition::IsValid(0, cond_1, cond_1_val_1, cond_1_val_2))
         {
             sLog.outErrorDb("Table gossip_menu entry %u, invalid condition 1 for id %u", gMenu.entry, gMenu.text_id);
             continue;
         }
 
-        if (!PlayerCondition::IsValid(cond_2, cond_2_val_1, cond_2_val_2))
+        if (!PlayerCondition::IsValid(0, cond_2, cond_2_val_1, cond_2_val_2))
         {
             sLog.outErrorDb("Table gossip_menu entry %u, invalid condition 2 for id %u", gMenu.entry, gMenu.text_id);
             continue;
@@ -8639,6 +8792,16 @@ void ObjectMgr::LoadGossipMenu(std::set<uint32>& gossipScriptSet)
 
         gMenu.cond_1 = GetConditionId(cond_1, cond_1_val_1, cond_1_val_2);
         gMenu.cond_2 = GetConditionId(cond_2, cond_2_val_1, cond_2_val_2);
+
+        if (gMenu.conditionId)
+        {
+            const PlayerCondition* condition = sConditionStorage.LookupEntry<PlayerCondition>(gMenu.conditionId);
+            if (!condition)
+            {
+                sLog.outErrorDb("Table gossip_menu for menu %u, text-id %u has condition_id %u that does not exist in `conditions`, ignoring", gMenu.entry, gMenu.text_id, gMenu.conditionId);
+                gMenu.conditionId = 0;
+            }
+        }
 
         m_mGossipMenusMap.insert(GossipMenusMap::value_type(gMenu.entry, gMenu));
 
@@ -8674,7 +8837,7 @@ void ObjectMgr::LoadGossipMenuItems(std::set<uint32>& gossipScriptSet)
         "action_menu_id, action_poi_id, action_script_id, box_coded, box_money, box_text, "
         "cond_1, cond_1_val_1, cond_1_val_2, "
         "cond_2, cond_2_val_1, cond_2_val_2, "
-        "cond_3, cond_3_val_1, cond_3_val_2 "
+        "cond_3, cond_3_val_1, cond_3_val_2, condition_id "
         "FROM gossip_menu_option");
 
     if (!result)
@@ -8696,7 +8859,7 @@ void ObjectMgr::LoadGossipMenuItems(std::set<uint32>& gossipScriptSet)
             if (itr->first)
                 menu_ids.insert(itr->first);
 
-        for(uint32 i = 1; i < sGOStorage.MaxEntry; ++i)
+        for (uint32 i = 1; i < sGOStorage.MaxEntry; ++i)
             if (GameObjectInfo const* gInfo = sGOStorage.LookupEntry<GameObjectInfo>(i))
                 if (uint32 menuid = gInfo->GetGossipMenuId())
                     menu_ids.erase(menuid);
@@ -8710,10 +8873,16 @@ void ObjectMgr::LoadGossipMenuItems(std::set<uint32>& gossipScriptSet)
     // prepare menuid -> CreatureInfo map for fast access
     typedef  std::multimap<uint32, const CreatureInfo*> Menu2CInfoMap;
     Menu2CInfoMap menu2CInfoMap;
-    for(uint32 i = 1;  i < sCreatureStorage.MaxEntry; ++i)
+    for (uint32 i = 1;  i < sCreatureStorage.MaxEntry; ++i)
         if (CreatureInfo const* cInfo = sCreatureStorage.LookupEntry<CreatureInfo>(i))
             if (cInfo->GossipMenuId)
+            {
                 menu2CInfoMap.insert(Menu2CInfoMap::value_type(cInfo->GossipMenuId, cInfo));
+
+                // unused check data preparing part
+                if (!sLog.HasLogFilter(LOG_FILTER_DB_STRICTED_CHECK))
+                    menu_ids.erase(cInfo->GossipMenuId);
+            }
 
     do
     {
@@ -8745,6 +8914,7 @@ void ObjectMgr::LoadGossipMenuItems(std::set<uint32>& gossipScriptSet)
         ConditionType cond_3            = (ConditionType)fields[18].GetUInt32();
         uint32 cond_3_val_1             = fields[19].GetUInt32();
         uint32 cond_3_val_2             = fields[20].GetUInt32();
+        gMenuItem.conditionId           = fields[21].GetUInt16();
 
         if (gMenuItem.menu_id)                              // == 0 id is special and not have menu_id data
         {
@@ -8755,17 +8925,17 @@ void ObjectMgr::LoadGossipMenuItems(std::set<uint32>& gossipScriptSet)
             }
         }
 
-        if (!PlayerCondition::IsValid(cond_1, cond_1_val_1, cond_1_val_2))
+        if (!PlayerCondition::IsValid(0, cond_1, cond_1_val_1, cond_1_val_2))
         {
             sLog.outErrorDb("Table gossip_menu_option menu %u, invalid condition 1 for id %u", gMenuItem.menu_id, gMenuItem.id);
             continue;
         }
-        if (!PlayerCondition::IsValid(cond_2, cond_2_val_1, cond_2_val_2))
+        if (!PlayerCondition::IsValid(0, cond_2, cond_2_val_1, cond_2_val_2))
         {
             sLog.outErrorDb("Table gossip_menu_option menu %u, invalid condition 2 for id %u", gMenuItem.menu_id, gMenuItem.id);
             continue;
         }
-        if (!PlayerCondition::IsValid(cond_3, cond_3_val_1, cond_3_val_2))
+        if (!PlayerCondition::IsValid(0, cond_3, cond_3_val_1, cond_3_val_2))
         {
             sLog.outErrorDb("Table gossip_menu_option menu %u, invalid condition 3 for id %u", gMenuItem.menu_id, gMenuItem.id);
             continue;
@@ -8791,7 +8961,7 @@ void ObjectMgr::LoadGossipMenuItems(std::set<uint32>& gossipScriptSet)
         if (gMenuItem.option_id >= GOSSIP_OPTION_MAX)
             sLog.outErrorDb("Table gossip_menu_option for menu %u, id %u has unknown option id %u. Option will not be used", gMenuItem.menu_id, gMenuItem.id, gMenuItem.option_id);
 
-        if (gMenuItem.menu_id && (gMenuItem.npc_option_npcflag || !sLog.HasLogFilter(LOG_FILTER_DB_STRICTED_CHECK)))
+        if (gMenuItem.menu_id && gMenuItem.npc_option_npcflag)
         {
             bool found_menu_uses = false;
             bool found_flags_uses = false;
@@ -8806,10 +8976,6 @@ void ObjectMgr::LoadGossipMenuItems(std::set<uint32>& gossipScriptSet)
                 // some from creatures with gossip menu can use gossip option base at npc_flags
                 if (gMenuItem.npc_option_npcflag & cInfo->npcflag)
                     found_flags_uses = true;
-
-                // unused check data preparing part
-                if (!sLog.HasLogFilter(LOG_FILTER_DB_STRICTED_CHECK))
-                    menu_ids.erase(gMenuItem.menu_id);
             }
 
             if (found_menu_uses && !found_flags_uses)
@@ -8824,7 +8990,7 @@ void ObjectMgr::LoadGossipMenuItems(std::set<uint32>& gossipScriptSet)
 
         if (gMenuItem.action_script_id)
         {
-            if (sGossipScripts.find(gMenuItem.action_script_id) == sGossipScripts.end())
+            if (sGossipScripts.second.find(gMenuItem.action_script_id) == sGossipScripts.second.end())
             {
                 sLog.outErrorDb("Table gossip_menu_option for menu %u, id %u have action_script_id %u that does not exist in `gossip_scripts`, ignoring", gMenuItem.menu_id, gMenuItem.id, gMenuItem.action_script_id);
                 continue;
@@ -8837,6 +9003,16 @@ void ObjectMgr::LoadGossipMenuItems(std::set<uint32>& gossipScriptSet)
         gMenuItem.cond_1 = GetConditionId(cond_1, cond_1_val_1, cond_1_val_2);
         gMenuItem.cond_2 = GetConditionId(cond_2, cond_2_val_1, cond_2_val_2);
         gMenuItem.cond_3 = GetConditionId(cond_3, cond_3_val_1, cond_3_val_2);
+
+        if (gMenuItem.conditionId)
+        {
+            const PlayerCondition* condition = sConditionStorage.LookupEntry<PlayerCondition>(gMenuItem.conditionId);
+            if (!condition)
+            {
+                sLog.outErrorDb("Table gossip_menu_option for menu %u, id %u has condition_id %u that does not exist in `conditions`, ignoring", gMenuItem.menu_id, gMenuItem.id, gMenuItem.conditionId);
+                gMenuItem.conditionId = 0;
+            }
+        }
 
         m_mGossipMenuItemsMap.insert(GossipMenuItemsMap::value_type(gMenuItem.menu_id, gMenuItem));
 
@@ -8861,7 +9037,7 @@ void ObjectMgr::LoadGossipMenus()
 {
     // Check which script-ids in gossip_scripts are not used
     std::set<uint32> gossipScriptSet;
-    for (ScriptMapMap::const_iterator itr = sGossipScripts.begin(); itr != sGossipScripts.end(); ++itr)
+    for (ScriptMapMap::const_iterator itr = sGossipScripts.second.begin(); itr != sGossipScripts.second.end(); ++itr)
         gossipScriptSet.insert(itr->first);
 
     // Load gossip_menu and gossip_menu_option data

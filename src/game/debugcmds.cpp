@@ -128,6 +128,7 @@ bool ChatHandler::HandleDebugSendOpcodeCommand(char* /*args*/)
         return false;
 
     uint32 opcode;
+    // opcode _value_
     ifs >> opcode;
 
     WorldPacket data(opcode, 0);
@@ -667,8 +668,12 @@ bool ChatHandler::HandleDebugSendSetPhaseShiftCommand(char* args)
     if (!*args)
         return false;
 
-    uint32 PhaseShift = atoi(args);
-    m_session->SendSetPhaseShift(PhaseShift);
+    char* m = strtok((char*)args, " ");
+    char* p = strtok(NULL, " ");
+
+    uint16 MapId = atoi(m);
+    uint32 PhaseShift = atoi(p);
+    m_session->SendSetPhaseShift(PhaseShift, MapId);
     return true;
 }
 
@@ -1104,7 +1109,7 @@ bool ChatHandler::HandleDebugSpellModsCommand(char* args)
     if (!typeStr)
         return false;
 
-    uint16 opcode;
+    Opcodes opcode;
     if (strncmp(typeStr, "flat", strlen(typeStr)) == 0)
         opcode = SMSG_SET_FLAT_SPELL_MODIFIER;
     else if (strncmp(typeStr, "pct", strlen(typeStr)) == 0)
@@ -1147,6 +1152,20 @@ bool ChatHandler::HandleDebugSpellModsCommand(char* args)
     data << uint8(spellmodop);
     data << int32(value);
     chr->GetSession()->SendPacket(&data);
+
+    return true;
+}
+
+bool ChatHandler::HandleDebugSendTradeStatusCommand(char* args)
+{
+    if (!*args)
+        return false;
+
+    uint32 status;
+    if (!ExtractUInt32(&args, status))
+        return false;
+
+    m_session->SendTradeStatus(TradeStatus(status));
 
     return true;
 }

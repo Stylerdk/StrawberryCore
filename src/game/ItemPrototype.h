@@ -268,10 +268,11 @@ enum ItemSubclassContainer
     ITEM_SUBCLASS_GEM_CONTAINER                 = 5,
     ITEM_SUBCLASS_MINING_CONTAINER              = 6,
     ITEM_SUBCLASS_LEATHERWORKING_CONTAINER      = 7,
-    ITEM_SUBCLASS_INSCRIPTION_CONTAINER         = 8
+    ITEM_SUBCLASS_INSCRIPTION_CONTAINER         = 8,
+    ITEM_SUBCLASS_TACKLE_BOX                    = 9
 };
 
-#define MAX_ITEM_SUBCLASS_CONTAINER               9
+#define MAX_ITEM_SUBCLASS_CONTAINER              10
 
 enum ItemSubclassWeapon
 {
@@ -310,10 +311,12 @@ enum ItemSubclassGem
     ITEM_SUBCLASS_GEM_ORANGE                    = 5,
     ITEM_SUBCLASS_GEM_META                      = 6,
     ITEM_SUBCLASS_GEM_SIMPLE                    = 7,
-    ITEM_SUBCLASS_GEM_PRISMATIC                 = 8
+    ITEM_SUBCLASS_GEM_PRISMATIC                 = 8,
+    ITEM_SUBCLASS_GEM_HYDRAULIC                 = 9,
+    ITEM_SUBCLASS_GEM_COGWHEEL                  = 10,
 };
 
-#define MAX_ITEM_SUBCLASS_GEM                     9
+#define MAX_ITEM_SUBCLASS_GEM                     11
 
 enum ItemSubclassArmor
 {
@@ -327,10 +330,11 @@ enum ItemSubclassArmor
     ITEM_SUBCLASS_ARMOR_LIBRAM                  = 7,
     ITEM_SUBCLASS_ARMOR_IDOL                    = 8,
     ITEM_SUBCLASS_ARMOR_TOTEM                   = 9,
-    ITEM_SUBCLASS_ARMOR_SIGIL                   = 10
+    ITEM_SUBCLASS_ARMOR_SIGIL                   = 10,
+    ITEM_SUBCLASS_ARMOR_RELIC                   = 11
 };
 
-#define MAX_ITEM_SUBCLASS_ARMOR                   11
+#define MAX_ITEM_SUBCLASS_ARMOR                   12
 
 enum ItemSubclassReagent
 {
@@ -391,10 +395,11 @@ enum ItemSubclassRecipe
     ITEM_SUBCLASS_FIRST_AID_MANUAL              = 7,
     ITEM_SUBCLASS_ENCHANTING_FORMULA            = 8,
     ITEM_SUBCLASS_FISHING_MANUAL                = 9,
-    ITEM_SUBCLASS_JEWELCRAFTING_RECIPE          = 10
+    ITEM_SUBCLASS_JEWELCRAFTING_RECIPE          = 10,
+    ITEM_SUBCLASS_RECIPE_INSCRIPTION            = 11,
 };
 
-#define MAX_ITEM_SUBCLASS_RECIPE                  11
+#define MAX_ITEM_SUBCLASS_RECIPE                  12
 
 enum ItemSubclassMoney
 {
@@ -509,18 +514,14 @@ enum ItemExtraFlags
 #pragma pack(push,1)
 #endif
 
-struct _Damage
-{
-    float   DamageMin;
-    float   DamageMax;
-    uint32  DamageType;                                     // id from Resistances.dbc
-};
-
 struct _ItemStat
 {
     uint32  ItemStatType;
     int32   ItemStatValue;
+    uint32  ItemStatType2;
+    int32   ItemStatValue2;
 };
+
 struct _Spell
 {
     uint32 SpellId;                                         // id from Spell.dbc
@@ -538,7 +539,6 @@ struct _Socket
     uint32 Content;
 };
 
-#define MAX_ITEM_PROTO_DAMAGES 2                            // changed in 3.1.0
 #define MAX_ITEM_PROTO_SOCKETS 3
 #define MAX_ITEM_PROTO_SPELLS  5
 #define MAX_ITEM_PROTO_STATS  10
@@ -554,6 +554,9 @@ struct ItemPrototype
     uint32 Quality;
     uint32 Flags;
     uint32 Flags2;
+    float Unknown;
+    float Unknown1;
+    uint32 Unknown2;
     uint32 BuyCount;
     uint32 BuyPrice;
     uint32 SellPrice;
@@ -572,20 +575,10 @@ struct ItemPrototype
     int32  MaxCount;                                        // <=0: no limit
     int32  Stackable;                                       // 0: not allowed, -1: put in player coin info tab and don't limit stacking (so 1 slot)
     uint32 ContainerSlots;
-    uint32 StatsCount;
     _ItemStat ItemStat[MAX_ITEM_PROTO_STATS];
     uint32 ScalingStatDistribution;                         // id from ScalingStatDistribution.dbc
-    uint32 ScalingStatValue;                                // mask for selecting column in ScalingStatValues.dbc
-    _Damage Damage[MAX_ITEM_PROTO_DAMAGES];                 // TODO: remove it
-    uint32 Armor;                                           // TODO: remove it
-    uint32 HolyRes;                                         // TODO: remove it
-    uint32 FireRes;                                         // TODO: remove it
-    uint32 NatureRes;                                       // TODO: remove it
-    uint32 FrostRes;                                        // TODO: remove it
-    uint32 ShadowRes;                                       // TODO: remove it
-    uint32 ArcaneRes;                                       // TODO: remove it
+    uint32 DamageType;
     uint32 Delay;
-    uint32 AmmoType;                                        // TODO: remove it
     float  RangedModRange;
     _Spell Spells[MAX_ITEM_PROTO_SPELLS];
     uint32 Bonding;
@@ -599,7 +592,6 @@ struct ItemPrototype
     uint32 Sheath;
     uint32 RandomProperty;                                  // id from ItemRandomProperties.dbc
     uint32 RandomSuffix;                                    // id from ItemRandomSuffix.dbc
-    uint32 Block;
     uint32 ItemSet;                                         // id from ItemSet.dbc
     uint32 MaxDurability;
     uint32 Area;                                            // id from AreaTable.dbc
@@ -611,12 +603,15 @@ struct ItemPrototype
     uint32 GemProperties;                                   // id from GemProperties.dbc
     int32 RequiredDisenchantSkill;
     float  ArmorDamageModifier;
-    uint32 Duration;                                        // negative = realtime, positive = ingame time
+    uint32 Duration;
     uint32 ItemLimitCategory;                               // id from ItemLimitCategory.dbc
     uint32 HolidayId;                                       // id from Holidays.dbc
     uint32 ScriptId;
     uint32 DisenchantID;
     uint32 FoodType;
+    float  StatScalingFactor;
+    uint32 Unknown400_1;
+    uint32 Unknown400_2;
     uint32 MinMoneyLoot;
     uint32 MaxMoneyLoot;
     uint32 ExtraFlags;                                      // see ItemExtraFlags

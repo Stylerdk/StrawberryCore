@@ -229,6 +229,7 @@ class ChatHandler
         bool HandleDebugSendSellErrorCommand(char* args);
         bool HandleDebugSendSetPhaseShiftCommand(char* args);
         bool HandleDebugSendSpellFailCommand(char* args);
+        bool HandleDebugSendTradeStatusCommand(char* args);
 
         bool HandleEventListCommand(char* args);
         bool HandleEventStartCommand(char* args);
@@ -402,15 +403,16 @@ class ChatHandler
         bool HandleReloadAchievementRewardCommand(char* args);
         bool HandleReloadAreaTriggerTavernCommand(char* args);
         bool HandleReloadAreaTriggerTeleportCommand(char* args);
+        bool HandleReloadBattleEventCommand(char* args);
+        bool HandleReloadCommandCommand(char* args);
+        bool HandleReloadConditionsCommand(char* args);
+        bool HandleReloadCreatureQuestRelationsCommand(char* args);
+        bool HandleReloadCreatureQuestInvRelationsCommand(char* args);
+        bool HandleReloadDbScriptStringCommand(char* args);
         bool HandleReloadEventScriptsCommand(char* args);
         bool HandleReloadEventAITextsCommand(char* args);
         bool HandleReloadEventAISummonsCommand(char* args);
         bool HandleReloadEventAIScriptsCommand(char* args);
-        bool HandleReloadCommandCommand(char* args);
-        bool HandleReloadBattleEventCommand(char* args);
-        bool HandleReloadCreatureQuestRelationsCommand(char* args);
-        bool HandleReloadCreatureQuestInvRelationsCommand(char* args);
-        bool HandleReloadDbScriptStringCommand(char* args);
         bool HandleReloadGameGraveyardZoneCommand(char* args);
         bool HandleReloadGameObjectScriptsCommand(char* args);
         bool HandleReloadGameTeleCommand(char* args);
@@ -573,7 +575,6 @@ class ChatHandler
         bool HandleLinkGraveCommand(char* args);
         bool HandleNearGraveCommand(char* args);
         bool HandleExploreCheatCommand(char* args);
-        bool HandleHoverCommand(char* args);
         bool HandleLevelUpCommand(char* args);
         bool HandleShowAreaCommand(char* args);
         bool HandleHideAreaCommand(char* args);

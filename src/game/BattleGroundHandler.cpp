@@ -32,7 +32,6 @@
 #include "BattleGround.h"
 #include "ArenaTeam.h"
 #include "Language.h"
-#include "ScriptBase/Event/EventScripts.h"
 #include "World.h"
 
 void WorldSession::HandleBattlemasterHelloOpcode(WorldPacket & recv_data)
@@ -162,8 +161,8 @@ void WorldSession::HandleBattlemasterJoinOpcode( WorldPacket & recv_data )
     BattleGroundQueue& bgQueue = sBattleGroundMgr.m_BattleGroundQueues[bgQueueTypeId];
     if (joinAsGroup)
     {
-        GroupQueueInfo * ginfo;
-        uint32 avgTime;
+        GroupQueueInfo* ginfo = NULL;
+        uint32 avgTime = 0;
 
         if(err > 0)
         {
@@ -516,6 +515,7 @@ void WorldSession::HandleBattlefieldStatusOpcode( WorldPacket & /*recv_data*/ )
         BattleGroundQueueTypeId bgQueueTypeId = _player->GetBattleGroundQueueTypeId(i);
         if (!bgQueueTypeId)
             continue;
+
         BattleGroundTypeId bgTypeId = BattleGroundMgr::BGTemplateId(bgQueueTypeId);
         ArenaType arenaType = BattleGroundMgr::BGArenaType(bgQueueTypeId);
         if (bgTypeId == _player->GetBattleGroundTypeId())
@@ -734,7 +734,7 @@ void WorldSession::HandleBattlemasterJoinArena( WorldPacket & recv_data )
     BattleGroundQueue &bgQueue = sBattleGroundMgr.m_BattleGroundQueues[bgQueueTypeId];
     if (asGroup)
     {
-        uint32 avgTime;
+        uint32 avgTime = 0;
 
         if(err > 0)
         {

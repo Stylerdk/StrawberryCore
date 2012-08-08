@@ -7,6 +7,8 @@
 
 #define MAX_ENCOUNTER 5
 
+#include "pchdef.h"
+
 enum Data64
 {
     DATA_ECHO_BAINE,
@@ -27,12 +29,12 @@ enum DATA
 
 enum CreatureIds
 {
-	// Creatures
-	BOSS_BAINE			= 54431,
-	BOSS_JAINA			= 54445,
-	BOSS_SYLVANAS		= 54123,
-	BOSS_TYRANDE		= 54544,
-	BOSS_MUROZOND		= 54432,
+    // Creatures
+    BOSS_BAINE            = 54431,
+    BOSS_JAINA            = 54445,
+    BOSS_SYLVANAS        = 54123,
+    BOSS_TYRANDE        = 54544,
+    BOSS_MUROZOND        = 54432,
 };
 
 class instance_end_time : public ScriptedInstance

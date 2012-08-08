@@ -138,6 +138,9 @@ bool Guild::Create(Player* leader, std::string gname)
         "VALUES('%u','%s','%u', '%s', '%s','" UI64FMTD "','%u','%u','%u','%u','%u','" UI64FMTD "')",
         m_Id, gname.c_str(), m_LeaderGuid.GetCounter(), dbGINFO.c_str(), dbMOTD.c_str(), uint64(m_CreatedDate), m_EmblemStyle, m_EmblemColor, m_BorderStyle, m_BorderColor, m_BackgroundColor, m_GuildBankMoney);
     CharacterDatabase.CommitTransaction();
+    
+    // Add reputation to leader
+    leader->GetReputationMgr().SetReputation(sFactionStore.LookupEntry(1168), 1);
 
     CreateDefaultGuildRanks(lSession->GetSessionDbLocaleIndex());
 
@@ -236,6 +239,9 @@ bool Guild::AddMember(ObjectGuid plGuid, uint32 plRank)
         pl->SetInGuild(m_Id);
         pl->SetRank(newmember.RankId);
         pl->SetGuildIdInvited(0);
+        pl->SetFlag(PLAYER_FLAGS, PLAYER_FLAGS_GLEVEL_ENABLED);
+        pl->SetUInt32Value(PLAYER_GUILDLEVEL, uint32(1));//GetLevel()));
+        pl->GetReputationMgr().SetReputation(sFactionStore.LookupEntry(1168), 1);
     }
 
     UpdateAccountsNumber();
@@ -692,6 +698,35 @@ void Guild::SetRankRights(uint32 rankId, uint32 rights)
     CharacterDatabase.PExecute("UPDATE guild_rank SET rights='%u' WHERE rid='%u' AND guildid='%u'", rights, rankId, m_Id);
 }
 
+void Guild::SendGuildRankInfo(WorldSession* session)
+{
+    WorldPacket data(SMSG_GUILD_RANKS);
+
+    uint32 count = m_Ranks.size();
+    data.WriteBits(count, 18);
+    for (uint32 k = 0; k < count; k++)
+        data.WriteBits(m_Ranks[k].Name.length(), 7);
+
+    for (uint32 i = 0; i < count; i++)
+    {
+        data << uint32(i);//Creation Order
+        for (uint32 j = 0; j < GUILD_BANK_MAX_TABS; ++j)
+        {
+            data << uint32(m_Ranks[i].TabSlotPerDay[j]);
+            data << uint32(m_Ranks[i].TabRight[j]);
+        }
+        data << uint32(m_Ranks[i].BankMoneyPerDay);
+        data << uint32(m_Ranks[i].Rights);
+        data.append(m_Ranks[i].Name.c_str(), m_Ranks[i].Name.size());
+        data << uint32(i);//order
+    }
+
+    if (session)
+        session->SendPacket(&data);
+    else
+        BroadcastPacket(&data);
+}
+
 /**
  * Disband guild including cleanup structures and DB
  *
@@ -723,9 +758,8 @@ void Guild::Disband()
     sGuildMgr.RemoveGuild(m_Id);
 }
 
-void Guild::Roster(WorldSession *session /*= NULL*/)
-{
-                                                            // we can only guess size
+void Guild::Roster(WorldSession *session)
+{                                                            // we can only guess size
     WorldPacket data(SMSG_GUILD_ROSTER, (4+MOTD.length()+1+GINFO.length()+1+4+m_Ranks.size()*(4+4+GUILD_BANK_MAX_TABS*(4+4))+members.size()*50));
     data << uint32(members.size());
     data << MOTD;
@@ -776,12 +810,14 @@ void Guild::Roster(WorldSession *session /*= NULL*/)
         session->SendPacket(&data);
     else
         BroadcastPacket(&data);
+
+    SendGuildRankInfo(session);
     DEBUG_LOG( "WORLD: Sent (SMSG_GUILD_ROSTER)" );
 }
 
 void Guild::Query(WorldSession *session)
 {
-    WorldPacket data(SMSG_GUILD_QUERY_RESPONSE, (8*32+200));// we can only guess size
+    WorldPacket data(SMSG_GUILD_CACHE, (8*32+200));// we can only guess size
 
     data << uint32(m_Id);
     data << m_Name;
@@ -802,7 +838,7 @@ void Guild::Query(WorldSession *session)
     data << uint32(0);                                      // probably real ranks count
 
     session->SendPacket( &data );
-    DEBUG_LOG( "WORLD: Sent (SMSG_GUILD_QUERY_RESPONSE)" );
+    DEBUG_LOG( "WORLD: Sent (SMSG_GUILD_CACHE)" );
 }
 
 void Guild::SetEmblem(uint32 emblemStyle, uint32 emblemColor, uint32 borderStyle, uint32 borderColor, uint32 backgroundColor)
@@ -2054,7 +2090,6 @@ void Guild::SwapItems(Player * pl, uint8 BankTab, uint8 BankTabSlot, uint8 BankT
         DisplayGuildBankContentUpdate(BankTabDst, BankTabSlotDst);
 }
 
-
 void Guild::MoveFromBankToChar( Player * pl, uint8 BankTab, uint8 BankTabSlot, uint8 PlayerBag, uint8 PlayerSlot, uint32 SplitedAmount)
 {
     Item *pItemBank = GetItem(BankTab, BankTabSlot);
@@ -2201,7 +2236,6 @@ void Guild::MoveFromBankToChar( Player * pl, uint8 BankTab, uint8 BankTabSlot, u
     }
     DisplayGuildBankContentUpdate(BankTab, BankTabSlot);
 }
-
 
 void Guild::MoveFromCharToBank( Player * pl, uint8 PlayerBag, uint8 PlayerSlot, uint8 BankTab, uint8 BankTabSlot, uint32 SplitedAmount )
 {
@@ -2351,12 +2385,12 @@ void Guild::MoveFromCharToBank( Player * pl, uint8 PlayerBag, uint8 PlayerSlot, 
     }
 }
 
-void Guild::BroadcastEvent(GuildEvents event, ObjectGuid guid, char const* str1 /*=NULL*/, char const* str2 /*=NULL*/, char const* str3 /*=NULL*/)
+void Guild::BroadcastEvent(GuildEvents guildEvent, ObjectGuid guid, char const* str1 /*=NULL*/, char const* str2 /*=NULL*/, char const* str3 /*=NULL*/)
 {
     uint8 strCount = !str1 ? 0 : (!str2 ? 1 : (!str3 ? 2 : 3));
 
-    WorldPacket data(SMSG_GUILD_EVENT, 1 + 1 + 1*strCount + (!guid ? 0 : 8));
-    data << uint8(event);
+    WorldPacket data(SMSG_GUILD_EVENT, 1 + 1 + strCount + (!guid ? 0 : 8));
+    data << uint8(guildEvent);
     data << uint8(strCount);
 
     if (str3)
@@ -2410,3 +2444,5 @@ bool GuildItemPosCount::isContainedIn(GuildItemPosCountVec const &vec) const
 
     return false;
 }
+
+//Rewards

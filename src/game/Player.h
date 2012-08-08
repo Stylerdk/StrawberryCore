@@ -57,9 +57,9 @@ class Item;
 
 typedef std::deque<Mail*> PlayerMails;
 
-#define PLAYER_MAX_SKILLS           127
+#define PLAYER_MAX_SKILLS           128
 #define PLAYER_MAX_DAILY_QUESTS     25
-#define PLAYER_EXPLORED_ZONES_SIZE  128
+#define PLAYER_EXPLORED_ZONES_SIZE  156
 
 // Note: SPELLMOD_* values is aura types in fact
 enum SpellModType
@@ -112,7 +112,27 @@ struct PlayerTalent
 };
 
 typedef UNORDERED_MAP<uint32, PlayerSpell> PlayerSpellMap;
-typedef UNORDERED_MAP<uint32, PlayerTalent> PlayerTalentMap;
+typedef std::map<uint32, PlayerTalent> PlayerTalentMap;
+
+struct PlayerTalentHolder
+{
+    public:
+        PlayerTalentHolder();
+        PlayerTalentHolder(uint32 tabId) : m_tabId(tabId), m_talentsLearned(0) { }
+        uint32 GetTabId() const { return m_tabId; }
+        uint32 GetTalentCount() const { return m_talentsLearned; }
+        PlayerTalentMap &GetTalentMap() { return m_talentMap; }
+        PlayerTalentMap const &GetTalentMap() const { return m_talentMap; }
+        void SetTabId(uint32 tabId) { m_tabId = tabId; }
+        void IncreaseTalentCount() { ++m_talentsLearned; }
+        void AddTalentToMap(uint32 talentId,PlayerTalent talent) { m_talentMap[talentId] = talent; }
+        void RemoveTalentFromMap(uint32 talentId) { m_talentMap.erase(talentId); }
+
+    private:
+        uint32              m_tabId;
+        uint8               m_talentsLearned;
+        PlayerTalentMap     m_talentMap;
+};
 
 // Spell modifier (used for modify other spells)
 struct SpellModifier
@@ -154,9 +174,9 @@ typedef std::map<uint32, SpellCooldown> SpellCooldowns;
 
 enum TrainerSpellState
 {
-    TRAINER_SPELL_GREEN = 0,
-    TRAINER_SPELL_RED   = 1,
-    TRAINER_SPELL_GRAY  = 2,
+    TRAINER_SPELL_GRAY  = 0,
+    TRAINER_SPELL_GREEN = 1,
+    TRAINER_SPELL_RED   = 2,
     TRAINER_SPELL_GREEN_DISABLED = 10                       // custom value, not send to client: formally green but learn not allowed
 };
 
@@ -435,33 +455,36 @@ enum DrunkenState
 
 enum PlayerFlags
 {
-    PLAYER_FLAGS_NONE                   = 0x00000000,
-    PLAYER_FLAGS_GROUP_LEADER           = 0x00000001,
-    PLAYER_FLAGS_AFK                    = 0x00000002,
-    PLAYER_FLAGS_DND                    = 0x00000004,
-    PLAYER_FLAGS_GM                     = 0x00000008,
-    PLAYER_FLAGS_GHOST                  = 0x00000010,
-    PLAYER_FLAGS_RESTING                = 0x00000020,
-    PLAYER_FLAGS_UNK7                   = 0x00000040,       // admin?
-    PLAYER_FLAGS_UNK8                   = 0x00000080,       // pre-3.0.3 PLAYER_FLAGS_FFA_PVP flag for FFA PVP state
-    PLAYER_FLAGS_CONTESTED_PVP          = 0x00000100,       // Player has been involved in a PvP combat and will be attacked by contested guards
-    PLAYER_FLAGS_IN_PVP                 = 0x00000200,
-    PLAYER_FLAGS_HIDE_HELM              = 0x00000400,
-    PLAYER_FLAGS_HIDE_CLOAK             = 0x00000800,
-    PLAYER_FLAGS_PARTIAL_PLAY_TIME      = 0x00001000,       // played long time
-    PLAYER_FLAGS_NO_PLAY_TIME           = 0x00002000,       // played too long time
-    PLAYER_FLAGS_IS_OUT_OF_BOUNDS       = 0x00004000,       // Lua_IsOutOfBounds
-    PLAYER_FLAGS_DEVELOPER              = 0x00008000,       // <Dev> chat tag, name prefix
-    PLAYER_FLAGS_ENABLE_LOW_LEVEL_RAID  = 0x00010000,       // triggers lua event EVENT_ENABLE_LOW_LEVEL_RAID
-    PLAYER_FLAGS_TAXI_BENCHMARK         = 0x00020000,       // taxi benchmark mode (on/off) (2.0.1)
-    PLAYER_FLAGS_PVP_TIMER              = 0x00040000,       // 3.0.2, pvp timer active (after you disable pvp manually)
-    PLAYER_FLAGS_COMMENTATOR            = 0x00080000,
-    PLAYER_FLAGS_UNK21                  = 0x00100000,
-    PLAYER_FLAGS_UNK22                  = 0x00200000,
-    PLAYER_FLAGS_COMMENTATOR_UBER       = 0x00400000,       // something like COMMENTATOR_CAN_USE_INSTANCE_COMMAND
-    PLAYER_FLAGS_UNK24                  = 0x00800000,       // EVENT_SPELL_UPDATE_USABLE and EVENT_UPDATE_SHAPESHIFT_USABLE, disabled all abilitys on tab except autoattack
-    PLAYER_FLAGS_UNK25                  = 0x01000000,       // EVENT_SPELL_UPDATE_USABLE and EVENT_UPDATE_SHAPESHIFT_USABLE, disabled all melee ability on tab include autoattack
-    PLAYER_FLAGS_XP_USER_DISABLED       = 0x02000000,
+    PLAYER_FLAGS_NONE                  = 0x00000000,
+    PLAYER_FLAGS_GROUP_LEADER          = 0x00000001,
+    PLAYER_FLAGS_AFK                   = 0x00000002,
+    PLAYER_FLAGS_DND                   = 0x00000004,
+    PLAYER_FLAGS_GM                    = 0x00000008,
+    PLAYER_FLAGS_GHOST                 = 0x00000010,
+    PLAYER_FLAGS_RESTING               = 0x00000020,
+    PLAYER_FLAGS_UNK7                  = 0x00000040,
+    PLAYER_FLAGS_UNK8                  = 0x00000080,               // pre-3.0.3 PLAYER_FLAGS_FFA_PVP flag for FFA PVP state
+    PLAYER_FLAGS_CONTESTED_PVP         = 0x00000100,               // Player has been involved in a PvP combat and will be attacked by contested guards
+    PLAYER_FLAGS_IN_PVP                = 0x00000200,
+    PLAYER_FLAGS_HIDE_HELM             = 0x00000400,
+    PLAYER_FLAGS_HIDE_CLOAK            = 0x00000800,
+    PLAYER_FLAGS_PARTIAL_PLAY_TIME     = 0x00001000,               // played long time
+    PLAYER_FLAGS_NO_PLAY_TIME          = 0x00002000,               // played too long time
+    PLAYER_FLAGS_IS_OUT_OF_BOUNDS      = 0x00004000,//0x00010000
+    PLAYER_FLAGS_DEVELOPER             = 0x00008000,               // <Dev> prefix for something?
+    PLAYER_FLAGS_ENABLE_LOW_LEVEL_RAID = 0x00010000,            // 
+    PLAYER_FLAGS_TAXI_BENCHMARK        = 0x00020000,               // taxi benchmark mode (on/off) (2.0.1)
+    PLAYER_FLAGS_PVP_TIMER             = 0x00040000,               // 3.0.2, pvp timer active (after you disable pvp manually)
+    PLAYER_FLAGS_COMMENTATOR           = 0x00080000,
+    PLAYER_FLAGS_UNK21                 = 0x00100000,
+    PLAYER_FLAGS_UNK22                 = 0x00200000,
+    PLAYER_FLAGS_COMMENTATOR_UBER      = 0x00400000,
+    PLAYER_ALLOW_ONLY_ABILITY          = 0x00800000,                // used by bladestorm and killing spree, allowed only spells with SPELL_ATTR0_REQ_AMMO, SPELL_EFFECT_ATTACK, checked only for active player
+    PLAYER_FLAGS_UNK25                 = 0x01000000,                // disabled all melee ability on tab include autoattack
+    PLAYER_FLAGS_XP_USER_DISABLED      = 0x02000000,
+    PLAYER_FLAGS_UNK27                 = 0x04000000,
+    PLAYER_FLAGS_UNK28                 = 0x08000000,
+    PLAYER_FLAGS_GLEVEL_ENABLED        = 0x10000000
 };
 
 // used for PLAYER__FIELD_KNOWN_TITLES field (uint64), (1<<bit_index) without (-1)
@@ -1003,7 +1026,7 @@ class TradeData
         Item*  GetSpellCastItem() const;
         bool HasSpellCastItem() const { return !m_spellCastItem.IsEmpty(); }
 
-        uint32 GetMoney() const { return m_money; }
+        uint64 GetMoney() const { return m_money; }
 
         bool IsAccepted() const { return m_accepted; }
         bool IsInAcceptProcess() const { return m_acceptProccess; }
@@ -1011,7 +1034,7 @@ class TradeData
 
         void SetItem(TradeSlots slot, Item* item);
         void SetSpell(uint32 spell_id, Item* castItem = NULL);
-        void SetMoney(uint32 money);
+        void SetMoney(uint64 money);
 
         void SetAccepted(bool state, bool crosssend = false);
 
@@ -1030,7 +1053,7 @@ class TradeData
         bool       m_accepted;                              // m_player press accept for trade list
         bool       m_acceptProccess;                        // one from player/trader press accept and this processed
 
-        uint32     m_money;                                 // m_player place money to trade
+        uint64     m_money;                                 // m_player place money to trade
 
         uint32     m_spell;                                 // m_player apply spell to non-traded slot item
         ObjectGuid m_spellCastItem;                         // applied spell casted by item use
@@ -1055,6 +1078,9 @@ class Player : public Unit
         void AddToWorld();
         void RemoveFromWorld();
 
+        void HandleCanFly(bool enable);
+
+        void SendTeleportPacket(float oldX, float oldY, float oldZ, float oldO);
         bool TeleportTo(uint32 mapid, float x, float y, float z, float orientation, uint32 options = 0);
 
         bool TeleportTo(WorldLocation const &loc, uint32 options = 0)
@@ -1100,7 +1126,7 @@ class Player : public Unit
         uint8 chatTag() const;
         std::string autoReplyMsg;
 
-        uint32 GetBarberShopCost(uint8 newhairstyle, uint8 newhaircolor, uint8 newfacialhair);
+        uint32 GetBarberShopCost(uint8 newhairstyle, uint8 newhaircolor, uint8 newfacialhair, uint32 newskintone);
 
         PlayerSocial *GetSocial() { return m_social; }
 
@@ -1273,7 +1299,7 @@ class Player : public Unit
                                                             // in trade, guild bank, mail....
         void RemoveItemDependentAurasAndCasts( Item * pItem );
         void DestroyItem( uint8 bag, uint8 slot, bool update );
-        void DestroyItemCount( uint32 item, uint32 count, bool update, bool unequip_check = false);
+        void DestroyItemCount(uint32 item, uint32 count, bool update, bool unequip_check = false, bool inBankAlso = false);
         void DestroyItemCount( Item* item, uint32& count, bool update );
         void DestroyConjuredItems( bool update );
         void DestroyZoneLimitedItem( bool update, uint32 new_zone );
@@ -1375,7 +1401,7 @@ class Player : public Unit
         void AddQuest( Quest const *pQuest, Object *questGiver );
         void CompleteQuest( uint32 quest_id );
         void IncompleteQuest( uint32 quest_id );
-        void RewardQuest( Quest const *pQuest, uint32 reward, Object* questGiver, bool announce = true );
+        void RewardQuest(Quest const *pQuest, uint32 reward, Object* questGiver, bool announce = true);
 
         void FailQuest( uint32 quest_id );
         bool SatisfyQuestSkill(Quest const* qInfo, bool msg) const;
@@ -1515,7 +1541,7 @@ class Player : public Unit
         void setRegenTimer(uint32 time) {m_regenTimer = time;}
         void setWeaponChangeTimer(uint32 time) {m_weaponChangeTimer = time;}
 
-        uint32 GetMoney() const { return GetUInt32Value (PLAYER_FIELD_COINAGE); }
+        uint64 GetMoney() const { return GetUInt32Value (PLAYER_FIELD_COINAGE); }
         void ModifyMoney( int32 d )
         {
             if(d < 0)
@@ -1614,8 +1640,8 @@ class Player : public Unit
         void learnQuestRewardedSpells(Quest const* quest);
         void learnSpellHighRank(uint32 spellid);
 
-        uint32 GetFreeTalentPoints() const { return 0/*GetUInt32Value(PLAYER_CHARACTER_POINTS1)*/; }
-        void SetFreeTalentPoints(uint32 points) { 0/*SetUInt32Value(PLAYER_CHARACTER_POINTS1,points)*/; }
+        uint32 GetFreeTalentPoints() const { return GetUInt32Value(PLAYER_CHARACTER_POINTS); }
+        void SetFreeTalentPoints(uint32 points) { SetUInt32Value(PLAYER_CHARACTER_POINTS,points);}
         void UpdateFreeTalentPoints(bool resetIfNeed = true);
         bool resetTalents(bool no_cost = false, bool all_specs = false);
         uint32 resetTalentsCost() const;
@@ -1653,8 +1679,8 @@ class Player : public Unit
 
         SpellCooldowns const& GetSpellCooldownMap() const { return m_spellCooldowns; }
 
-        PlayerTalent const* GetKnownTalentById(int32 talentId) const;
-        SpellEntry const* GetKnownTalentRankById(int32 talentId) const;
+        PlayerTalent const* GetKnownTalentById(uint32 talentId) const;
+        SpellEntry const* GetKnownTalentRankById(uint32 talentId) const;
 
         void AddSpellMod(Aura* aura, bool apply);
         template <class T> T ApplySpellMod(uint32 spellId, SpellModOp op, T &basevalue, Spell const* spell = NULL);
@@ -1754,7 +1780,7 @@ class Player : public Unit
         void SetAllowLowLevelRaid(bool allow) { ApplyModFlag(PLAYER_FLAGS, PLAYER_FLAGS_ENABLE_LOW_LEVEL_RAID, allow); }
         bool GetAllowLowLevelRaid() const { return HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_ENABLE_LOW_LEVEL_RAID); }
 
-        void SetInGuild(uint32 GuildId) { m_guildId = GuildId; }
+        void SetInGuild(uint32 GuildId);
         void SetRank(uint32 rankId){ SetUInt32Value(PLAYER_GUILDRANK, rankId); }
         void SetGuildIdInvited(uint32 GuildId) { m_GuildIdInvited = GuildId; }
         uint32 GetGuildId() { return m_guildId; }
@@ -1856,6 +1882,7 @@ class Player : public Unit
         void SetSession(WorldSession *s) { m_session = s; }
 
         void BuildCreateUpdateBlockForPlayer( UpdateData *data, Player *target ) const;
+        void SetPhaseAndMap(Player* target) const;
         void DestroyForPlayer( Player *target, bool anim = false ) const;
         void SendLogXPGain(uint32 GivenXP,Unit* victim,uint32 RestXP);
 
@@ -1932,6 +1959,7 @@ class Player : public Unit
         int16 GetSkillPermBonusValue(uint32 skill) const;
         int16 GetSkillTempBonusValue(uint32 skill) const;
         bool HasSkill(uint32 skill) const;
+        uint16 GetSkillStep(uint16 skill) const;
         void learnSkillRewardedSpells(uint32 id, uint32 value);
 
         WorldLocation& GetTeleportDest() { return m_teleport_dest; }
@@ -2235,7 +2263,7 @@ class Player : public Unit
         Object* GetObjectByTypeMask(ObjectGuid guid, TypeMask typemask);
 
         // currently visible objects at player client
-        ObjectGuidSet m_clientGUIDs;
+        GuidSet m_clientGUIDs;
 
         bool HaveAtClient(WorldObject const* u) { return u==this || m_clientGUIDs.find(u->GetObjectGuid())!=m_clientGUIDs.end(); }
 
@@ -2245,7 +2273,7 @@ class Player : public Unit
         void UpdateVisibilityOf(WorldObject const* viewPoint, WorldObject* target);
 
         template<class T>
-            void UpdateVisibilityOf(WorldObject const* viewPoint,T* target, UpdateData& data, std::set<WorldObject*>& visibleNow);
+        void UpdateVisibilityOf(WorldObject const* viewPoint,T* target, UpdateData& data, std::set<WorldObject*>& visibleNow);
 
         // Stealth detection system
         void HandleStealthedUnitsDetection();
@@ -2483,7 +2511,7 @@ class Player : public Unit
 
         PlayerMails m_mail;
         PlayerSpellMap m_spells;
-        PlayerTalentMap m_talents[MAX_TALENT_SPEC_COUNT];
+        PlayerTalentHolder m_talents[MAX_TALENT_SPEC_COUNT][3];
         SpellCooldowns m_spellCooldowns;
         uint32 m_lastPotionId;                              // last used health/mana potion in combat, that block next potion use
 

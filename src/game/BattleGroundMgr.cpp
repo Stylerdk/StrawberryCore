@@ -1318,11 +1318,12 @@ void BattleGroundMgr::BuildPvpLogDataPacket(WorldPacket *data, BattleGround *bg)
         }
         else
         {
-            Player *plr = sObjectMgr.GetPlayer(itr->first);
             Team team = bg->GetPlayerTeam(itr->first);
-            if (!team && plr)
-                team = plr->GetTeam();
-            if (( bg->GetWinner()==0 && team == ALLIANCE ) || ( bg->GetWinner()==1 && team==HORDE ))
+            if (!team)
+                if (Player* player = sObjectMgr.GetPlayer(itr->first))
+                    team = player->GetTeam();
+
+            if (bg->GetWinner() == team && team != TEAM_NONE)
                 *data << uint8(1);
             else
                 *data << uint8(0);
@@ -1382,15 +1383,17 @@ void BattleGroundMgr::BuildGroupJoinedBattlegroundPacket(WorldPacket *data, Grou
 
 void BattleGroundMgr::BuildUpdateWorldStatePacket(WorldPacket *data, uint32 field, uint32 value)
 {
-    data->Initialize(SMSG_UPDATE_WORLD_STATE, 4+4);
+    data->Initialize(SMSG_UPDATE_WORLD_STATE, 4 + 4 + 1);
     *data << uint32(field);
     *data << uint32(value);
+    *data << uint8(0);
 }
 
 void BattleGroundMgr::BuildPlaySoundPacket(WorldPacket *data, uint32 soundid)
 {
     data->Initialize(SMSG_PLAY_SOUND, 4);
     *data << uint32(soundid);
+    *data << ObjectGuid();
 }
 
 void BattleGroundMgr::BuildPlayerLeftBattleGroundPacket(WorldPacket *data, ObjectGuid guid)
@@ -1582,7 +1585,7 @@ uint32 BattleGroundMgr::CreateBattleGround(BattleGroundTypeId bgTypeId, bool IsA
         case BATTLEGROUND_RV: bg = new BattleGroundRV; break;
         case BATTLEGROUND_IC: bg = new BattleGroundIC; break;
         case BATTLEGROUND_RB: bg = new BattleGroundRB; break;
-        default:bg = new BattleGround;   break;             // placeholder for non implemented BG
+        default:              bg = new BattleGround;   break;                           // placeholder for non implemented BG
     }
 
     bg->SetMapId(MapID);

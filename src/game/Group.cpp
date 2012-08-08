@@ -147,6 +147,7 @@ bool Group::Create(ObjectGuid guid, const char * name)
         CharacterDatabase.BeginTransaction();
         CharacterDatabase.PExecute("DELETE FROM groups WHERE groupId ='%u'", m_Id);
         CharacterDatabase.PExecute("DELETE FROM group_member WHERE groupId ='%u'", m_Id);
+
         CharacterDatabase.PExecute("INSERT INTO groups (groupId,leaderGuid,mainTank,mainAssistant,lootMethod,looterGuid,lootThreshold,icon1,icon2,icon3,icon4,icon5,icon6,icon7,icon8,groupType,difficulty,raiddifficulty) "
             "VALUES ('%u','%u','%u','%u','%u','%u','%u','" UI64FMTD "','" UI64FMTD "','" UI64FMTD "','" UI64FMTD "','" UI64FMTD "','" UI64FMTD "','" UI64FMTD "','" UI64FMTD "','%u','%u','%u')",
             m_Id, m_leaderGuid.GetCounter(), m_mainTankGuid.GetCounter(), m_mainAssistantGuid.GetCounter(), uint32(m_lootMethod),
@@ -762,7 +763,7 @@ void Group::StartLootRool(Creature* lootTarget, LootMethod method, Loot* loot, u
 
         if (lootItem.AllowedForPlayer(playerToRoll))
         {
-            if (playerToRoll->IsWithinDist(lootTarget, sWorld.getConfig(CONFIG_FLOAT_GROUP_XP_DISTANCE), false))
+            if (playerToRoll->IsWithinDistInMap(lootTarget, sWorld.getConfig(CONFIG_FLOAT_GROUP_XP_DISTANCE), false))
             {
                 r->playerVote[playerToRoll->GetObjectGuid()] = ROLL_NOT_EMITED_YET;
                 ++r->totalPlayersRolling;
@@ -1037,6 +1038,7 @@ void Group::SendUpdate()
         {
             data << uint8(0);
             data << uint32(0);
+            data << uint8(0);                               // 4.3.4
         }
         data << GetObjectGuid();                            // group guid
         data << uint32(0);                                  // 3.3, this value increments every time SMSG_GROUP_LIST is sent
@@ -1065,7 +1067,6 @@ void Group::SendUpdate()
             data << uint8(m_lootThreshold);                 // loot threshold
             data << uint8(m_dungeonDifficulty);             // Dungeon Difficulty
             data << uint8(m_raidDifficulty);                // Raid Difficulty
-            data << uint8(0);                               // 3.3, dynamic difficulty?
         }
         player->GetSession()->SendPacket( &data );
     }

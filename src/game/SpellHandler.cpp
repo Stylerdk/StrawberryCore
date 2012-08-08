@@ -26,7 +26,6 @@
 #include "Log.h"
 #include "Opcodes.h"
 #include "Spell.h"
-#include "ScriptBase/Event/EventScripts.h"
 #include "Totem.h"
 #include "SpellAuras.h"
 
@@ -287,7 +286,6 @@ void WorldSession::HandleGameObjectUseOpcode( WorldPacket & recv_data )
         return;
 
     GameObject *obj = GetPlayer()->GetMap()->GetGameObject(guid);
-
     if(!obj)
         return;
 
@@ -338,10 +336,11 @@ void WorldSession::HandleGameobjectReportUse(WorldPacket& recvPacket)
 
 void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
 {
-    uint32 spellId;
+    uint32 spellId, glyphIndex;
     uint8  cast_count, unk_flags;
     recvPacket >> cast_count;
     recvPacket >> spellId;
+    recvPacket >> glyphIndex;
     recvPacket >> unk_flags;                                // flags (if 0x02 - some additional data are received)
 
     // ignore for remote control state (for player case)
@@ -440,6 +439,7 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
 
     Spell *spell = new Spell(mover, spellInfo, false);
     spell->m_cast_count = cast_count;                       // set count of casts
+    spell->m_glyphIndex = glyphIndex;
     spell->prepare(&targets);
 }
 
@@ -472,7 +472,7 @@ void WorldSession::HandleCancelAuraOpcode( WorldPacket& recvPacket)
     if (!spellInfo)
         return;
 
-    if (spellInfo->Attributes & SPELL_ATTR_CANT_CANCEL)
+    if (spellInfo->HasAttribute(SPELL_ATTR_CANT_CANCEL))
         return;
 
     if (IsPassiveSpell(spellInfo))
